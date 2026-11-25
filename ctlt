@@ -1,0 +1,2608 @@
+<!DOCTYPE html>
+<html lang="vi" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniRecall - Sổ Tay Ghi Nhớ Kép</title>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        stem: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                        social: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- KaTeX CSS & JS for Math/Chemistry Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        /* Custom Scrollbar & 3D Flip Animation */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
+
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+        .katex-display {
+            margin: 0.75em 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 0.25rem 0;
+        }
+        /* Smooth transitions */
+        .card-flip-inner {
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .cloze-blank {
+            display: inline-block;
+            border-bottom: 2px dashed #6366f1;
+            padding: 0 4px;
+            margin: 0 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: rgba(99, 102, 241, 0.08);
+        }
+        .cloze-blank:hover {
+            background-color: rgba(99, 102, 241, 0.2);
+        }
+        .dark .cloze-blank {
+            border-bottom-color: #818cf8;
+            background-color: rgba(129, 140, 248, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans antialiased transition-colors duration-200 min-h-screen flex flex-col">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+            <!-- Brand -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="app.navigate('dashboard')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                    <i class="ph-bold ph-brain text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight leading-none">OmniRecall</h1>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Sổ Tay Ghi Nhớ Kép</span>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs (Desktop) -->
+            <nav class="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
+                <button onclick="app.navigate('dashboard')" id="nav-dashboard" class="nav-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                    <i class="ph ph-squares-four text-base"></i> Tổng quan
+                </button>
+                <button onclick="app.navigate('library')" id="nav-library" class="nav-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                    <i class="ph ph-books text-base"></i> Kho thẻ học
+                </button>
+                <button onclick="app.openAiModal()" class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm hover:opacity-95 transition-all flex items-center gap-1.5">
+                    <i class="ph-bold ph-sparkle text-base"></i> ✨ Nhập bằng AI
+                </button>
+                <button onclick="app.openCardModal()" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-white dark:hover:bg-slate-700 transition-all flex items-center gap-1.5">
+                    <i class="ph-bold ph-plus text-base"></i> Tạo thủ công
+                </button>
+            </nav>
+
+            <!-- Right Actions -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <!-- Mobile AI Button -->
+                <button onclick="app.openAiModal()" class="md:hidden px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold shadow-sm flex items-center gap-1">
+                    <i class="ph-bold ph-sparkle"></i> ✨ AI
+                </button>
+                <!-- Export / Import JSON -->
+                <button onclick="app.exportData()" title="Xuất dữ liệu sao lưu (JSON)" class="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <i class="ph ph-download-simple text-lg"></i>
+                </button>
+                <label title="Nhập dữ liệu từ tệp JSON" class="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                    <i class="ph ph-upload-simple text-lg"></i>
+                    <input type="file" id="import-file" accept=".json" class="hidden" onchange="app.importData(event)">
+                </label>
+
+                <!-- Theme Toggle -->
+                <button onclick="app.toggleTheme()" id="theme-toggle" title="Đổi giao diện Sáng / Tối" class="p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <i class="ph ph-moon text-lg dark:hidden"></i>
+                    <i class="ph ph-sun text-lg hidden dark:inline text-amber-400"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Bottom Navigation -->
+        <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-4 py-2 flex justify-around items-center z-40">
+            <button onclick="app.navigate('dashboard')" id="m-nav-dashboard" class="flex flex-col items-center gap-1 p-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400">
+                <i class="ph ph-squares-four text-xl"></i> Tổng quan
+            </button>
+            <button onclick="app.openCardModal()" class="flex flex-col items-center justify-center -mt-6 w-12 h-12 rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30">
+                <i class="ph-bold ph-plus text-xl"></i>
+            </button>
+            <button onclick="app.navigate('library')" id="m-nav-library" class="flex flex-col items-center gap-1 p-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400">
+                <i class="ph ph-books text-xl"></i> Kho thẻ
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-10">
+        
+        <!-- VIEW 1: DASHBOARD -->
+        <section id="view-dashboard" class="space-y-8">
+            <!-- Hero / Quick Study Banner -->
+            <div class="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl shadow-indigo-500/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div class="space-y-2 max-w-2xl">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-medium backdrop-blur-sm">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Hệ thống Lặp lại Ngắt quãng SM-2
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">Sẵn sàng chinh phục kỳ thi hôm nay?</h2>
+                    <p class="text-indigo-100 text-sm sm:text-base leading-relaxed">
+                        Kết hợp sức mạnh ghi nhớ công thức Tự nhiên (KaTeX) và tư duy đoạn văn Xã hội (Cloze Deletion, First-Letter Hint, Active Recall).
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-3 w-full md:w-auto shrink-0">
+                    <button onclick="app.startStudySession('all', true)" class="flex-1 md:flex-none px-5 py-3 rounded-xl bg-white text-indigo-700 font-semibold text-sm shadow-md hover:bg-indigo-50 transition-all flex items-center justify-center gap-2">
+                        <i class="ph-bold ph-lightning text-lg text-amber-500"></i>
+                        Ôn thẻ đến hạn (<span id="stat-due-btn">0</span>)
+                    </button>
+                    <button onclick="app.openAiModal()" class="flex-1 md:flex-none px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2">
+                        <i class="ph-bold ph-sparkle text-lg"></i> ✨ Nhập bằng AI
+                    </button>
+                    <button onclick="app.startStudySession('all', false)" class="flex-1 md:flex-none px-5 py-3 rounded-xl bg-indigo-500/40 hover:bg-indigo-500/60 border border-white/20 text-white font-medium text-sm transition-all flex items-center justify-center gap-2">
+                        <i class="ph ph-play text-lg"></i> Ôn tự do
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Overview Grid -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Cần ôn hôm nay</span>
+                        <div class="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                            <i class="ph-bold ph-clock-countdown text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white" id="stat-due">0</div>
+                    <p class="text-xs text-slate-500 mt-1">Thẻ đã tới lịch lặp lại</p>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Tổng số thẻ</span>
+                        <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                            <i class="ph-bold ph-cards text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white" id="stat-total">0</div>
+                    <p class="text-xs text-slate-500 mt-1">Trên tất cả các môn học</p>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Môn Tự Nhiên</span>
+                        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                            <i class="ph-bold ph-function text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400" id="stat-stem">0</div>
+                    <p class="text-xs text-slate-500 mt-1">Công thức Toán, Lý, Hóa</p>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Môn Xã Hội</span>
+                        <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                            <i class="ph-bold ph-book-open-text text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400" id="stat-social">0</div>
+                    <p class="text-xs text-slate-500 mt-1">Lý luận, Khái niệm, Văn hóa</p>
+                </div>
+            </div>
+
+            <!-- Subjects Section -->
+            <div class="space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Danh sách Môn học & Bộ thẻ</h3>
+                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Chọn một môn học để bắt đầu ôn tập chuyên sâu hoặc quản lý thẻ</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="app.openSubjectModal()" class="px-3.5 py-2 rounded-xl bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5">
+                            <i class="ph-bold ph-folder-plus"></i> Thêm môn học
+                        </button>
+                        <button onclick="app.resetSampleData()" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 transition-colors flex items-center gap-1.5" title="Khôi phục bộ dữ liệu mẫu ban đầu">
+                            <i class="ph ph-arrows-counter-clockwise"></i> Nạp dữ liệu mẫu
+                        </button>
+                    </div>
+                </div>
+
+                <div id="subjects-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Subject cards rendered via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 2: STUDY SESSION -->
+        <section id="view-study" class="hidden max-w-4xl mx-auto space-y-6">
+            <!-- Study Header -->
+            <div class="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <button onclick="app.navigate('dashboard')" class="px-3 py-1.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors">
+                    <i class="ph-bold ph-arrow-left"></i> Thoát
+                </button>
+                
+                <div class="flex items-center gap-3">
+                    <span id="study-subject-badge" class="px-3 py-1 rounded-full text-xs font-semibold">Môn học</span>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        Thẻ <span id="study-current-idx">1</span> / <span id="study-total-idx">10</span>
+                    </span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full sm:w-40 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div id="study-progress-bar" class="bg-indigo-600 h-full transition-all duration-300" style="width: 10%"></div>
+                </div>
+            </div>
+
+            <!-- Mode Selector Tabs (Dynamic based on STEM vs Social) -->
+            <div id="study-mode-tabs" class="flex flex-wrap justify-center gap-2">
+                <!-- Mode buttons populated by JS -->
+            </div>
+
+            <!-- Active Study Card Stage -->
+            <div id="study-stage" class="min-h-[380px]">
+                <!-- Dynamic content for STEM Flashcard / STEM Formula Cloze / Social Cloze / Social Typing / Social Chunking -->
+            </div>
+
+            <!-- SM-2 Spaced Repetition Rating Bar -->
+            <div id="srs-rating-panel" class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                <div class="text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Đánh giá mức độ ghi nhớ của bạn để hệ thống lên lịch ôn tập tối ưu (Thuật toán SM-2):
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <button onclick="app.rateCard(1)" class="p-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 transition-all flex flex-col items-center gap-1">
+                        <span class="font-bold text-sm">1. Quên</span>
+                        <span id="next-int-1" class="text-[11px] opacity-80">Ôn lại ngay</span>
+                    </button>
+                    <button onclick="app.rateCard(3)" class="p-3 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 transition-all flex flex-col items-center gap-1">
+                        <span class="font-bold text-sm">2. Khó</span>
+                        <span id="next-int-3" class="text-[11px] opacity-80">1 ngày</span>
+                    </button>
+                    <button onclick="app.rateCard(4)" class="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 transition-all flex flex-col items-center gap-1">
+                        <span class="font-bold text-sm">3. Tốt</span>
+                        <span id="next-int-4" class="text-[11px] opacity-80">3 ngày</span>
+                    </button>
+                    <button onclick="app.rateCard(5)" class="p-3 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 transition-all flex flex-col items-center gap-1">
+                        <span class="font-bold text-sm">4. Dễ</span>
+                        <span id="next-int-5" class="text-[11px] opacity-80">6 ngày</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: CARD LIBRARY -->
+        <section id="view-library" class="hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Kho Thẻ Học Tập</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Tìm kiếm, chỉnh sửa hoặc học nhanh từng thẻ kiến thức</p>
+                </div>
+                <button onclick="app.openCardModal()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition-all flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-plus"></i> Tạo thẻ mới
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="library-search" oninput="app.renderLibrary()" placeholder="Tìm tiêu đề, công thức, nội dung..." class="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <select id="library-subject-filter" onchange="app.renderLibrary()" class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="all">Tất cả môn học</option>
+                </select>
+                <select id="library-type-filter" onchange="app.renderLibrary()" class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="all">Tất cả nhóm môn</option>
+                    <option value="stem">Môn Tự Nhiên (STEM)</option>
+                    <option value="social">Môn Xã Hội</option>
+                </select>
+            </div>
+
+            <!-- Cards List -->
+            <div id="library-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Library items rendered via JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: ADD / EDIT CARD -->
+    <div id="card-modal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-auto">
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h3 id="card-modal-title" class="font-bold text-lg">Tạo thẻ ghi nhớ mới</h3>
+                <button onclick="app.closeCardModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <form id="card-form" onsubmit="app.saveCard(event)" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <input type="hidden" id="card-id">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Môn học</label>
+                        <select id="card-subject" required onchange="app.onModalSubjectChange()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Phân loại phương pháp học</label>
+                        <select id="card-type" onchange="app.toggleFormFields()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="stem">Môn Tự Nhiên (Công thức Toán/Lý/Hóa)</option>
+                            <option value="social">Môn Xã Hội (Đoạn văn / Khái niệm / Dàn ý)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Tên định lý / Phản ứng / Khái niệm (Mặt trước)</label>
+                    <input type="text" id="card-front" required placeholder="VD: Công thức tích phân từng phần hoặc Khái niệm Vật chất (Lênin)" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+
+                <!-- STEM SPECIFIC FIELDS -->
+                <div id="stem-fields" class="space-y-4">
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Công thức (Cú pháp LaTeX / mhchem)</label>
+                            <span class="text-[11px] text-slate-400">Dùng dấu | để tách mảnh ghép khi luyện điền khuyết</span>
+                        </div>
+                        
+                        <!-- Quick Symbol Toolbar -->
+                        <div class="flex flex-wrap gap-1.5 p-2 mb-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                            <button type="button" onclick="app.insertLatex('\\frac{a}{b}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Phân số">a/b</button>
+                            <button type="button" onclick="app.insertLatex('\\int_{a}^{b} f(x)\\,dx')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Tích phân">∫</button>
+                            <button type="button" onclick="app.insertLatex('\\sum_{i=1}^{n}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Tổng Sigma">∑</button>
+                            <button type="button" onclick="app.insertLatex('\\lim_{x \\to \\infty}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Giới hạn">lim</button>
+                            <button type="button" onclick="app.insertLatex('\\sqrt{x}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Căn bậc hai">√</button>
+                            <button type="button" onclick="app.insertLatex('^{2}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Chỉ số trên">x²</button>
+                            <button type="button" onclick="app.insertLatex('_{n}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Chỉ số dưới">xₙ</button>
+                            <button type="button" onclick="app.insertLatex('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Ma trận">[M]</button>
+                            <button type="button" onclick="app.insertLatex('\\ce{A + B -> C + D}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Phản ứng hóa học">→ (Hóa)</button>
+                            <button type="button" onclick="app.insertLatex('\\ce{A + B <=> C}')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Phản ứng thuận nghịch">⇌</button>
+                            <button type="button" onclick="app.insertLatex('\\alpha, \\beta, \\Delta, \\lambda, \\pi')" class="px-2 py-1 text-xs font-mono bg-white dark:bg-slate-700 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-slate-600" title="Ký hiệu Hy Lạp">α β Δ</button>
+                        </div>
+
+                        <textarea id="card-formula" rows="2" oninput="app.updateFormulaPreview()" placeholder="VD: \int u\,dv = uv - \int v\,du  hoặc  \ce{2KMnO4 + 16HCl -> 2KCl + 2MnCl2 + 5Cl2 ^ + 8H2O}" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-sm focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+                        
+                        <!-- Live KaTeX Preview -->
+                        <div class="mt-2 p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-800/50 min-h-[54px] flex items-center justify-center">
+                            <div id="formula-preview" class="text-base text-slate-800 dark:text-slate-100">Xem trước công thức tại đây...</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Giải thích biến số & Điều kiện áp dụng</label>
+                        <textarea id="card-explanation" rows="2" placeholder="VD: u, v là các hàm số khả vi liên tục trên [a, b]..." class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Ví dụ áp dụng nhanh</label>
+                        <textarea id="card-example" rows="2" placeholder="VD: Tính \int x e^x dx bằng cách đặt u = x, dv = e^x dx..." class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    </div>
+                </div>
+
+                <!-- SOCIAL SCIENCE SPECIFIC FIELDS -->
+                <div id="social-fields" class="hidden space-y-4">
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">Nội dung đoạn văn / Định nghĩa đầy đủ</label>
+                            <button type="button" onclick="app.wrapSelectionBold()" class="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 hover:bg-amber-200">
+                                **Bôi đậm từ khóa**
+                            </button>
+                        </div>
+                        <textarea id="card-content" rows="5" placeholder="Nhập đoạn văn cần học thuộc. Đặt từ khóa quan trọng trong dấu **từ khóa** để hệ thống ưu tiên ẩn khi luyện Cloze..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm leading-relaxed focus:ring-2 focus:ring-amber-500 outline-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Dàn ý phân cấp / Ghi chú ý chính (Mỗi ý 1 dòng)</label>
+                        <textarea id="card-outline" rows="3" placeholder="- Ý chính 1: Nguồn gốc tự nhiên&#10;  + Ý phụ: Bộ óc người và thế giới khách quan&#10;- Ý chính 2: Nguồn gốc xã hội (Lao động và ngôn ngữ)" class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    </div>
+                </div>
+
+                <!-- SHARED EXPLANATION & EXAMPLE WITH AI BUTTON -->
+                <div class="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/70 dark:border-indigo-900/50 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                            <i class="ph-bold ph-lightbulb text-amber-500 text-base"></i> Mở rộng giúp nhớ sâu (Hỗ trợ $LaTeX$)
+                        </span>
+                        <button type="button" id="modal-ai-enrich-btn" onclick="app.enrichCardFormWithAi()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all">
+                            <i class="ph-bold ph-sparkle"></i> <span>✨ Dùng AI tạo Giải thích & Ví dụ</span>
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">💡 Giải thích bản chất dễ hiểu</label>
+                        <textarea id="card-shared-explanation" rows="2" placeholder="Giải thích ý nghĩa cốt lõi, đại lượng hoặc tư duy đằng sau kiến thức này (dùng $...$ nếu có công thức)..." class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">🎯 Ví dụ minh họa thực tế / Bài tập nhanh</label>
+                        <textarea id="card-shared-example" rows="2" placeholder="Ví dụ áp dụng cụ thể hoặc liên hệ đời sống sinh động dễ nhớ..." class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2.5 border-t border-slate-200 dark:border-slate-800">
+                    <button type="button" onclick="app.closeCardModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Hủy</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md">Lưu thẻ học</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD SUBJECT -->
+    <div id="subject-modal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-lg">Thêm môn học mới</h3>
+                <button onclick="app.closeSubjectModal()" class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+            <form onsubmit="app.saveSubject(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Tên môn học</label>
+                    <input type="text" id="subject-name" required placeholder="VD: Xác suất thống kê, Lịch sử Đảng..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Nhóm môn</label>
+                    <select id="subject-category" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="stem">Môn Tự Nhiên (Công thức, Định lý)</option>
+                        <option value="social">Môn Xã Hội (Lý luận, Văn bản)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="app.closeSubjectModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Hủy</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Tạo môn học</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: AI SMART IMPORT STUDIO -->
+    <div id="ai-modal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-gradient-to-r from-violet-600 via-indigo-600 to-indigo-700 text-white flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
+                        <i class="ph-bold ph-sparkle text-xl text-amber-300"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight">AI Smart Import Studio</h3>
+                        <p class="text-xs text-indigo-100">Trích xuất công thức KaTeX & đoạn văn học thuật tự động từ giáo trình, ảnh chụp hoặc chủ đề</p>
+                    </div>
+                </div>
+                <button onclick="app.closeAiModal()" class="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Studio Body -->
+            <div class="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1">
+                
+                <!-- 1. API Key & Model Config Bar -->
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                            <i class="ph-bold ph-key"></i> Cấu hình Gemini API
+                        </span>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                            Lấy API Key miễn phí tại Google AI Studio <i class="ph-bold ph-arrow-square-out"></i>
+                        </a>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                        <div class="sm:col-span-7 relative">
+                            <input type="password" id="ai-api-key" oninput="app.saveAiConfig()" placeholder="Dán Gemini API Key (AIzaSy...) hoặc để trống để dùng thử Demo..." class="w-full pl-3.5 pr-10 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <button type="button" onclick="app.toggleApiKeyVisibility()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1" title="Hiện/Ẩn API Key">
+                                <i id="ai-key-eye" class="ph ph-eye text-base"></i>
+                            </button>
+                        </div>
+                        <div class="sm:col-span-5 flex gap-2">
+                            <select id="ai-model-select" onchange="app.saveAiConfig()" class="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <option value="gemini-2.5-flash">gemini-2.5-flash (Nhanh & Vision)</option>
+                                <option value="gemini-3-flash-preview">gemini-3-flash-preview (Mặc định)</option>
+                            </select>
+                            <button type="button" onclick="app.runAiDemoMode()" class="px-3 py-2 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30 text-xs font-bold whitespace-nowrap transition-colors" title="Chạy thử luồng tách thẻ AI mà không cần API Key">
+                                ⚡ Dùng thử Demo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Input Mode Tabs -->
+                <div class="space-y-4">
+                    <div class="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
+                        <button type="button" onclick="app.switchAiTab('text')" id="ai-tab-text" class="ai-tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm">
+                            <i class="ph-bold ph-file-text text-base"></i> <span class="truncate">1. Văn bản / Giáo trình</span>
+                        </button>
+                        <button type="button" onclick="app.switchAiTab('image')" id="ai-tab-image" class="ai-tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300">
+                            <i class="ph-bold ph-camera text-base"></i> <span class="truncate">2. Ảnh chụp / Ctrl+V</span>
+                        </button>
+                        <button type="button" onclick="app.switchAiTab('topic')" id="ai-tab-topic" class="ai-tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300">
+                            <i class="ph-bold ph-magic-wand text-base"></i> <span class="truncate">3. Tạo theo Chủ đề</span>
+                        </button>
+                    </div>
+
+                    <!-- TAB 1: PASTE & EXTRACT TEXT -->
+                    <div id="ai-panel-text" class="space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">Dán đoạn giáo trình, slide bài giảng, đề cương ôn tập:</label>
+                            <div class="flex gap-1.5">
+                                <button type="button" onclick="app.fillAiSamplePrompt('stem')" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100">
+                                    Mẫu Tự nhiên
+                                </button>
+                                <button type="button" onclick="app.fillAiSamplePrompt('social')" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-100">
+                                    Mẫu Xã hội
+                                </button>
+                            </div>
+                        </div>
+                        <textarea id="ai-raw-text" rows="5" placeholder="Dán bất kỳ nội dung nào: công thức Toán cao cấp, phương trình Hóa đại cương, định luật Vật lý, hoặc các đoạn khái niệm Triết học Mác-Lênin, Cơ sở văn hóa Việt Nam... AI sẽ tự phân loại Tự nhiên/Xã hội và định dạng chuẩn xác!" class="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm leading-relaxed focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    </div>
+
+                    <!-- TAB 2: IMAGE-TO-CARD VISION -->
+                    <div id="ai-panel-image" class="hidden space-y-3">
+                        <div id="ai-dropzone" onclick="document.getElementById('ai-image-input').click()" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-6 text-center cursor-pointer transition-all bg-slate-50/70 dark:bg-slate-800/40">
+                            <input type="file" id="ai-image-input" accept="image/*" class="hidden" onchange="app.handleAiImageUpload(event)">
+                            <div id="ai-image-placeholder" class="space-y-2">
+                                <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto">
+                                    <i class="ph-bold ph-image text-2xl"></i>
+                                </div>
+                                <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nhấn để chọn ảnh hoặc bấm <kbd class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-xs font-mono">Ctrl + V</kbd> dán ảnh trực tiếp</div>
+                                <p class="text-xs text-slate-500">Hỗ trợ ảnh chụp vở ghi tay, ảnh chụp màn hình PDF giáo trình, bảng công thức Toán/Hóa</p>
+                            </div>
+                            <div id="ai-image-preview-wrap" class="hidden relative inline-block max-w-full">
+                                <img id="ai-image-preview" src="" alt="Preview" class="max-h-56 rounded-xl shadow-md mx-auto border border-slate-200 dark:border-slate-700">
+                                <button type="button" onclick="event.stopPropagation(); app.clearAiImage();" class="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-rose-600 text-white shadow-md flex items-center justify-center hover:bg-rose-700">
+                                    <i class="ph-bold ph-x text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="text" id="ai-image-note" placeholder="Ghi chú thêm cho AI (VD: Trích xuất tất cả phương trình hóa học trong ảnh và cân bằng)..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <!-- TAB 3: PROMPT GENERATOR -->
+                    <div id="ai-panel-topic" class="hidden space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                            <div class="sm:col-span-9">
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Chủ đề / Câu hỏi ôn tập cần biên soạn</label>
+                                <input type="text" id="ai-topic-input" placeholder="VD: Các công thức đạo hàm, tích phân cơ bản Toán cao cấp hoặc Mối quan hệ biện chứng giữa vật chất và ý thức" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Số lượng thẻ</label>
+                                <select id="ai-topic-count" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <option value="3">3 thẻ</option>
+                                    <option value="5" selected>5 thẻ</option>
+                                    <option value="8">8 thẻ</option>
+                                    <option value="10">10 thẻ</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Subject & Generate Button -->
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                        <div class="flex items-center gap-2 flex-1">
+                            <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">Gán vào môn:</span>
+                            <select id="ai-target-subject" class="flex-1 sm:max-w-xs px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="auto">✨ Tự động phân loại / Tạo môn mới</option>
+                            </select>
+                        </div>
+                        <button type="button" id="ai-generate-btn" onclick="app.generateCardsWithAi()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-sparkle text-lg"></i>
+                            <span>Phân tích & Tạo thẻ với AI</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="ai-loading" class="hidden py-10 text-center space-y-3 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/40">
+                    <div class="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <div class="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Gemini AI đang đọc hiểu, chuẩn hóa LaTeX & tách từ khóa...</div>
+                    <p class="text-xs text-slate-500">Quá trình này thường mất khoảng 3 - 8 giây</p>
+                </div>
+
+                <!-- 3. AI PREVIEW & BATCH EDIT SECTION -->
+                <div id="ai-results-section" class="hidden space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h4 class="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                                <i class="ph-bold ph-check-square-offset text-emerald-500 text-lg"></i>
+                                Xem trước & Chỉnh sửa thẻ AI (<span id="ai-selected-count">0</span>/<span id="ai-total-count">0</span> thẻ được chọn)
+                            </h4>
+                            <p class="text-xs text-slate-500">Kiểm tra công thức KaTeX, chỉnh sửa nhanh nội dung hoặc đổi môn học trước khi lưu hàng loạt</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="app.toggleAllAiCards(true)" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200">Chọn tất cả</button>
+                            <button type="button" onclick="app.toggleAllAiCards(false)" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200">Bỏ chọn</button>
+                        </div>
+                    </div>
+
+                    <div id="ai-preview-list" class="space-y-4">
+                        <!-- Generated cards preview items rendered via JS -->
+                    </div>
+
+                    <div class="sticky bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+                        <button type="button" onclick="app.closeAiModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Đóng</button>
+                        <button type="button" onclick="app.saveAiBatchCards()" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                            <i class="ph-bold ph-floppy-disk text-lg"></i>
+                            <span>Lưu tất cả vào kho học tập</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC -->
+    <script>
+        const STORAGE_KEY = 'omnirecall_data_v1';
+        const THEME_KEY = 'omnirecall_theme';
+        const AI_CONFIG_KEY = 'omnirecall_ai_config_v1';
+
+        // Rich Sample Data for Immediate Trial
+        const DEFAULT_DATA = {
+            subjects: [
+                { id: 'sub-toan', name: 'Toán Cao Cấp (Giải tích)', category: 'stem' },
+                { id: 'sub-hoa', name: 'Hóa Đại Cương', category: 'stem' },
+                { id: 'sub-triet', name: 'Triết học Mác - Lênin', category: 'social' },
+                { id: 'sub-vh', name: 'Cơ sở Văn hóa Việt Nam', category: 'social' }
+            ],
+            cards: [
+                // STEM - Toán cao cấp
+                {
+                    id: 'card-1',
+                    subjectId: 'sub-toan',
+                    type: 'stem',
+                    front: 'Công thức Tích phân từng phần',
+                    formula: '\\int_{a}^{b} u\\,dv = \\Big[u \\cdot v\\Big]_{a}^{b} - \\int_{a}^{b} v\\,du',
+                    explanation: 'u = u(x) và v = v(x) là các hàm số có đạo hàm liên tục trên đoạn [a, b]. Thứ tự ưu tiên đặt u: Nhất log - Nhì đa - Tam lượng - Tứ mũ.',
+                    example: 'Tính I = \\int x e^x dx: Đặt u = x \\Rightarrow du = dx; dv = e^x dx \\Rightarrow v = e^x. Khi đó I = x e^x - \\int e^x dx = x e^x - e^x + C.',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                },
+                {
+                    id: 'card-2',
+                    subjectId: 'sub-toan',
+                    type: 'stem',
+                    front: 'Công thức Khai triển Taylor (với phần dư Peano)',
+                    formula: 'f(x) = \\sum_{k=0}^{n} \\frac{f^{(k)}(x_0)}{k!}(x - x_0)^k + o\\big((x - x_0)^n\\big)',
+                    explanation: 'f(x) khả vi đến cấp n tại lân cận điểm x₀. Khi x₀ = 0, khai triển này được gọi là công thức Maclaurin.',
+                    example: 'Khai triển Maclaurin của e^x: e^x = 1 + x + \\frac{x^2}{2!} + \\frac{x^3}{3!} + \\dots + \\frac{x^n}{n!} + o(x^n).',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                },
+                // STEM - Hóa đại cương
+                {
+                    id: 'card-3',
+                    subjectId: 'sub-hoa',
+                    type: 'stem',
+                    front: 'Phương trình Nernst (Thế điện cực)',
+                    formula: 'E = E^0 + \\frac{RT}{nF} \\ln \\frac{[\\text{Ox}]}{[\\text{Kh}]} = E^0 + \\frac{0.0592}{n} \\lg \\frac{[\\text{Ox}]}{[\\text{Kh}]} \\quad (\\text{ở } 25^\\circ\\text{C})',
+                    explanation: 'E⁰: thế điện cực chuẩn (V); R = 8.314 J/(mol·K); T: nhiệt độ tuyệt đối (K); n: số electron trao đổi; F = 96485 C/mol (hằng số Faraday).',
+                    example: 'Với cặp oxi hóa - khử \\ce{Zn^{2+}/Zn}: E = E^0_{\\ce{Zn^{2+}/Zn}} + \\frac{0.0592}{2} \\lg[\\ce{Zn^{2+}}].',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                },
+                {
+                    id: 'card-4',
+                    subjectId: 'sub-hoa',
+                    type: 'stem',
+                    front: 'Phản ứng oxi hóa - khử điển hình của KMnO₄ trong môi trường axit',
+                    formula: '\\ce{2KMnO4 + 10FeSO4 + 8H2SO4 -> K2SO4 + 2MnSO4 + 5Fe2(SO4)3 + 8H2O}',
+                    explanation: 'Ion \\ce{MnO4^-} (màu tím, Mn⁺⁷) bị khử về \\ce{Mn^{2+}} (không màu) trong môi trường axit mạnh \\ce{H2SO4} loãng.',
+                    example: 'Ứng dụng trong chuẩn độ pemanganat để xác định nồng độ ion \\ce{Fe^{2+}}.',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                },
+                // SOCIAL - Triết học Mác - Lênin
+                {
+                    id: 'card-5',
+                    subjectId: 'sub-triet',
+                    type: 'social',
+                    front: 'Định nghĩa Vật chất của V.I. Lênin',
+                    content: '**Vật chất** là một **phạm trù triết học** dùng để chỉ **thực tại khách quan** được đem lại cho con người trong **cảm giác**, được cảm giác của chúng ta **chép lại, chụp lại, phản ánh**, và tồn tại **không lệ thuộc** vào cảm giác.',
+                    explanation: 'Hiểu đơn giản: Bất cứ thứ gì tồn tại ngoài đầu óc con người, không phụ thuộc vào việc ta có muốn hay không (như cái bàn, dòng điện, quy luật tự nhiên) đều là vật chất. Ý thức chỉ là sự phản ánh lại thế giới đó vào bộ não.',
+                    example: 'Ví dụ: Ngọn núi Everest vẫn tồn tại sừng sững hàng triệu năm trước khi con người phát hiện và đặt tên cho nó — chứng minh vật chất tồn tại khách quan, không lệ thuộc cảm giác.',
+                    outline: '- Thuộc tính cơ bản nhất: Thực tại khách quan (tồn tại độc lập với ý thức).\n- Khả năng nhận thức: Con người có thể nhận thức được thế giới vật chất thông qua cảm giác (chép lại, chụp lại, phản ánh).\n- Ý nghĩa: Chống lại chủ nghĩa duy tâm và thuyết bất khả tri.',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                },
+                {
+                    id: 'card-6',
+                    subjectId: 'sub-triet',
+                    type: 'social',
+                    front: 'Mối quan hệ biện chứng giữa Cơ sở hạ tầng và Kiến trúc thượng tầng',
+                    content: '**Cơ sở hạ tầng** quyết định **kiến trúc thượng tầng**, đồng thời kiến trúc thượng tầng có sự **tác động trở lại** mạnh mẽ đối với cơ sở hạ tầng. Nếu kiến trúc thượng tầng tác động **cùng chiều** với quy luật kinh tế khách quan sẽ **thúc đẩy** kinh tế phát triển; nếu **ngược chiều** sẽ **kìm hãm** sự phát triển.',
+                    explanation: 'Cơ sở hạ tầng ở đây là toàn bộ quan hệ sản xuất hợp thành cơ cấu kinh tế (chứ không phải đường sá, cầu cống!). Còn Kiến trúc thượng tầng là hệ thống chính trị, pháp luật, nhà nước, tư tưởng được xây dựng trên nền kinh tế đó.',
+                    example: 'Ví dụ: Chính sách Đổi mới năm 1986 (Kiến trúc thượng tầng) phù hợp với quy luật phát triển kinh tế nhiều thành phần (Cơ sở hạ tầng) đã giúp kinh tế Việt Nam bứt phá mạnh mẽ.',
+                    outline: '- Vai trò quyết định của CSHT: CSHT nào thì sinh ra KTTT ấy; CSHT biến đổi thì KTTT sớm muộn cũng biến đổi theo.\n- Tính độc lập tương đối của KTTT: Nhà nước là bộ phận có quyền lực mạnh nhất tác động trực tiếp đến kinh tế.',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                },
+                // SOCIAL - Cơ sở văn hóa Việt Nam
+                {
+                    id: 'card-7',
+                    subjectId: 'sub-vh',
+                    type: 'social',
+                    front: 'Định nghĩa Văn hóa của Chủ tịch Hồ Chí Minh (1943)',
+                    content: 'Vì lẽ **sinh tồn** cũng như mục đích của cuộc sống, loài người mới **sáng tạo** và **phát minh** ra ngôn ngữ, chữ viết, đạo đức, pháp luật, khoa học, tôn giáo, văn học, nghệ thuật, những công cụ cho sinh hoạt hằng ngày về mặc, ăn, ở và các phương thức sử dụng. Toàn bộ những sáng tạo và phát minh đó tức là **văn hóa**.',
+                    explanation: 'Định nghĩa này tiếp cận văn hóa theo nghĩa rộng nhất: Mọi giá trị vật chất và tinh thần do con người tạo ra nhằm thích nghi với tự nhiên và phục vụ nhu cầu sinh tồn, phát triển của xã hội đều là văn hóa.',
+                    example: 'Ví dụ: Từ chiếc cày, cái cuốc, áo dài truyền thống (văn hóa vật chất) cho đến chữ Quốc ngữ, ca dao, tục ngữ, đạo lý uống nước nhớ nguồn (văn hóa tinh thần) đều nằm trong khái niệm văn hóa của Bác.',
+                    outline: '- Động lực ra đời văn hóa: Vì lẽ sinh tồn và mục đích cuộc sống.\n- Nội hàm văn hóa: Bao gồm cả văn hóa vật chất (ăn, mặc, ở, công cụ) và văn hóa tinh thần (ngôn ngữ, đạo đức, nghệ thuật...).',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                },
+                {
+                    id: 'card-8',
+                    subjectId: 'sub-vh',
+                    type: 'social',
+                    front: 'Đặc trưng của Văn hóa gốc Nông nghiệp lúa nước Việt Nam',
+                    content: 'Do sống định cư phụ thuộc vào thiên nhiên, người Việt hình thành lối ứng xử **tôn trọng và hòa hợp với tự nhiên**, tư duy **tổng hợp và biện chứng**, trọng tình, trọng đức, trọng văn, lối sống **linh hoạt** và tính **cộng đồng làng xã** sâu sắc.',
+                    explanation: 'Nghề trồng lúa nước cần mưa thuận gió hòa và sức người đắp đê trị thủy, vì vậy người Việt coi trọng sự hài hòa với trời đất, gắn bó mật thiết với xóm làng ("bán anh em xa mua láng giềng gần") và xử lý tình huống mềm dẻo.',
+                    example: 'Ví dụ: Trong ngôn ngữ hằng ngày, người Việt hay nói "Lạy trời mưa xuống", "Nhờ trời" (hòa hợp tự nhiên) và "Một trăm cái lý không bằng một tí cái tình" (trọng tình, linh hoạt).',
+                    outline: '- Ứng xử với môi trường tự nhiên: Tôn trọng, sống hòa hợp (khác với văn hóa du mục phương Tây muốn chinh phục tự nhiên).\n- Tổ chức cộng đồng: Trọng tình nghĩa, nguyên tắc tập thể làng xã.\n- Tư duy: Tổng hợp, thiên về kinh nghiệm chủ quan cảm tính.',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                }
+            ]
+        };
+
+        const app = {
+            data: { subjects: [], cards: [] },
+            aiState: {
+                activeTab: 'text',
+                imageBase64: null,
+                imageMimeType: null,
+                generatedCards: []
+            },
+            studyState: {
+                queue: [],
+                currentIndex: 0,
+                mode: 'flashcard', // STEM: 'flashcard', 'formula-cloze' | SOCIAL: 'cloze', 'typing', 'chunking'
+                isFlipped: false,
+                clozeLevel: 30, // 30, 50, 80, 100 (First-letter hint)
+                revealedClozes: new Set(),
+                chunkStep: 1,
+                selectedTiles: [],
+                availableTiles: []
+            },
+
+            init() {
+                this.loadTheme();
+                this.loadData();
+                this.loadAiConfig();
+                this.bindPasteImageListener();
+                this.navigate('dashboard');
+            },
+
+            // --- THEME & STORAGE ---
+            loadTheme() {
+                const saved = localStorage.getItem(THEME_KEY);
+                if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            },
+
+            toggleTheme() {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+            },
+
+            loadData() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        this.data = JSON.parse(raw);
+                    } else {
+                        this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                        this.saveData();
+                    }
+                } catch (e) {
+                    console.error('Lỗi đọc dữ liệu:', e);
+                    this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                }
+            },
+
+            saveData() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+                this.updateStats();
+            },
+
+            resetSampleData() {
+                this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                this.saveData();
+                this.renderDashboard();
+                this.showToast('Đã khôi phục bộ dữ liệu mẫu ban đầu!', 'success');
+            },
+
+            exportData() {
+                const dataStr = JSON.stringify(this.data, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const date = new Date().toISOString().slice(0, 10);
+                a.href = url;
+                a.download = `OmniRecall_Backup_${date}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showToast('Đã xuất tệp sao lưu JSON thành công!', 'success');
+            },
+
+            importData(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (parsed && Array.isArray(parsed.subjects) && Array.isArray(parsed.cards)) {
+                            this.data = parsed;
+                            this.saveData();
+                            this.navigate('dashboard');
+                            this.showToast(`Đã nhập ${parsed.cards.length} thẻ học thành công!`, 'success');
+                        } else {
+                            this.showToast('Định dạng tệp JSON không hợp lệ!', 'error');
+                        }
+                    } catch (err) {
+                        this.showToast('Không thể đọc tệp JSON này!', 'error');
+                    }
+                    event.target.value = '';
+                };
+                reader.readAsText(file);
+            },
+
+            showToast(msg, type = 'info') {
+                const container = document.getElementById('toast-container');
+                const el = document.createElement('div');
+                const colors = {
+                    success: 'bg-emerald-600 text-white',
+                    error: 'bg-rose-600 text-white',
+                    info: 'bg-slate-800 dark:bg-slate-700 text-white'
+                };
+                el.className = `${colors[type] || colors.info} px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0`;
+                el.innerHTML = `<i class="ph-bold ${type === 'success' ? 'ph-check-circle' : type === 'error' ? 'ph-warning-circle' : 'ph-info'} text-lg"></i> <span>${msg}</span>`;
+                container.appendChild(el);
+                requestAnimationFrame(() => {
+                    el.classList.remove('translate-y-2', 'opacity-0');
+                });
+                setTimeout(() => {
+                    el.classList.add('opacity-0', 'translate-y-2');
+                    setTimeout(() => el.remove(), 300);
+                }, 3000);
+            },
+
+            // --- NAVIGATION ---
+            navigate(view) {
+                ['dashboard', 'study', 'library'].forEach(v => {
+                    document.getElementById(`view-${v}`).classList.add('hidden');
+                    const navBtn = document.getElementById(`nav-${v}`);
+                    if (navBtn) {
+                        navBtn.classList.remove('bg-white', 'dark:bg-slate-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                        navBtn.classList.add('text-slate-600', 'dark:text-slate-300');
+                    }
+                });
+
+                document.getElementById(`view-${view}`).classList.remove('hidden');
+                const activeNav = document.getElementById(`nav-${view}`);
+                if (activeNav) {
+                    activeNav.classList.add('bg-white', 'dark:bg-slate-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                    activeNav.classList.remove('text-slate-600', 'dark:text-slate-300');
+                }
+
+                if (view === 'dashboard') this.renderDashboard();
+                if (view === 'library') this.renderLibrary();
+            },
+
+            // --- DASHBOARD & STATS ---
+            updateStats() {
+                const now = Date.now();
+                const dueCount = this.data.cards.filter(c => (c.srs?.nextReview || 0) <= now).length;
+                const stemCount = this.data.cards.filter(c => c.type === 'stem').length;
+                const socialCount = this.data.cards.filter(c => c.type === 'social').length;
+
+                document.getElementById('stat-due').textContent = dueCount;
+                document.getElementById('stat-due-btn').textContent = dueCount;
+                document.getElementById('stat-total').textContent = this.data.cards.length;
+                document.getElementById('stat-stem').textContent = stemCount;
+                document.getElementById('stat-social').textContent = socialCount;
+            },
+
+            renderDashboard() {
+                this.updateStats();
+                const grid = document.getElementById('subjects-grid');
+                const now = Date.now();
+
+                if (this.data.subjects.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500">Chưa có môn học nào. Hãy tạo môn học mới hoặc nạp dữ liệu mẫu!</div>`;
+                    return;
+                }
+
+                grid.innerHTML = this.data.subjects.map(sub => {
+                    const subCards = this.data.cards.filter(c => c.subjectId === sub.id);
+                    const dueCards = subCards.filter(c => (c.srs?.nextReview || 0) <= now);
+                    const isStem = sub.category === 'stem';
+
+                    return `
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${isStem ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'}">
+                                        <i class="ph-bold ${isStem ? 'ph-atom' : 'ph-scroll'} text-2xl"></i>
+                                    </div>
+                                    <div>
+                                        <span class="text-[11px] font-bold uppercase tracking-wider ${isStem ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">
+                                            ${isStem ? 'Môn Tự Nhiên' : 'Môn Xã Hội'}
+                                        </span>
+                                        <h4 class="font-bold text-base text-slate-900 dark:text-white">${this.escapeHtml(sub.name)}</h4>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold ${dueCards.length > 0 ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">
+                                    ${dueCards.length} cần ôn
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                                <span class="text-xs text-slate-500 dark:text-slate-400">Tổng: <strong>${subCards.length}</strong> thẻ</span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="app.openCardModal(null, '${sub.id}')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                        + Thêm thẻ
+                                    </button>
+                                    <button onclick="app.startStudySession('${sub.id}', false)" ${subCards.length === 0 ? 'disabled' : ''} class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white ${isStem ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'} disabled:opacity-40 transition-colors flex items-center gap-1.5">
+                                        <i class="ph-bold ph-play"></i> Học ngay
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            // --- KATEX HELPER ---
+            renderMath(text, displayMode = false) {
+                if (!text) return '';
+                if (typeof katex === 'undefined') return this.escapeHtml(text);
+                try {
+                    return katex.renderToString(text, {
+                        throwOnError: false,
+                        displayMode: displayMode,
+                        trust: true
+                    });
+                } catch (e) {
+                    return this.escapeHtml(text);
+                }
+            },
+
+            // Render inline math wrapped in $...$ inside normal text
+            renderMixedText(text) {
+                if (!text) return '';
+                const escaped = this.escapeHtml(text);
+                return escaped.replace(/\$([^$]+)\$/g, (_, math) => {
+                    // Unescape basic entities for KaTeX
+                    const cleanMath = math.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+                    return this.renderMath(cleanMath, false);
+                });
+            },
+
+            // --- STUDY ENGINE ---
+            startStudySession(subjectId = 'all', dueOnly = false) {
+                const now = Date.now();
+                let pool = [...this.data.cards];
+
+                if (subjectId !== 'all') {
+                    pool = pool.filter(c => c.subjectId === subjectId);
+                }
+                if (dueOnly) {
+                    pool = pool.filter(c => (c.srs?.nextReview || 0) <= now);
+                }
+
+                if (pool.length === 0) {
+                    this.showToast(dueOnly ? 'Tuyệt vời! Bạn đã hoàn thành hết thẻ cần ôn hôm nay.' : 'Môn học này chưa có thẻ nào!', 'info');
+                    return;
+                }
+
+                // Shuffle slightly for variety
+                pool.sort(() => Math.random() - 0.5);
+
+                this.studyState.queue = pool;
+                this.studyState.currentIndex = 0;
+                this.navigate('study');
+                this.loadCurrentCard();
+            },
+
+            loadCurrentCard() {
+                const card = this.studyState.queue[this.studyState.currentIndex];
+                if (!card) {
+                    this.navigate('dashboard');
+                    this.showToast('Chúc mừng! Bạn đã hoàn thành phiên ôn tập!', 'success');
+                    return;
+                }
+
+                // Reset card states
+                this.studyState.isFlipped = false;
+                this.studyState.revealedClozes = new Set();
+                this.studyState.chunkStep = 1;
+                this.studyState.selectedTiles = [];
+
+                // Default mode based on card type
+                if (card.type === 'stem') {
+                    if (!['flashcard', 'formula-cloze'].includes(this.studyState.mode)) {
+                        this.studyState.mode = 'flashcard';
+                    }
+                    this.prepareFormulaTiles(card.formula);
+                } else {
+                    if (!['cloze', 'typing', 'chunking'].includes(this.studyState.mode)) {
+                        this.studyState.mode = 'cloze';
+                    }
+                }
+
+                // Update Header Info
+                const sub = this.data.subjects.find(s => s.id === card.subjectId);
+                const badge = document.getElementById('study-subject-badge');
+                badge.textContent = sub ? sub.name : 'Chung';
+                badge.className = `px-3 py-1 rounded-full text-xs font-semibold ${card.type === 'stem' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'}`;
+
+                document.getElementById('study-current-idx').textContent = this.studyState.currentIndex + 1;
+                document.getElementById('study-total-idx').textContent = this.studyState.queue.length;
+                const pct = ((this.studyState.currentIndex + 1) / this.studyState.queue.length) * 100;
+                document.getElementById('study-progress-bar').style.width = `${pct}%`;
+
+                // Update SM-2 interval previews
+                this.updateSrsButtonLabels(card);
+
+                // Render Mode Tabs & Stage
+                this.renderModeTabs(card);
+                this.renderStudyStage();
+            },
+
+            setStudyMode(mode) {
+                this.studyState.mode = mode;
+                this.studyState.isFlipped = false;
+                this.studyState.revealedClozes = new Set();
+                this.studyState.chunkStep = 1;
+                const card = this.studyState.queue[this.studyState.currentIndex];
+                if (mode === 'formula-cloze') {
+                    this.prepareFormulaTiles(card.formula);
+                }
+                this.renderModeTabs(card);
+                this.renderStudyStage();
+            },
+
+            renderModeTabs(card) {
+                const container = document.getElementById('study-mode-tabs');
+                const modes = card.type === 'stem'
+                    ? [
+                        { id: 'flashcard', label: 'Flashcard 2 mặt', icon: 'ph-cards' },
+                        { id: 'formula-cloze', label: 'Ghép / Điền khuyết công thức', icon: 'ph-puzzle-piece' }
+                    ]
+                    : [
+                        { id: 'cloze', label: 'Che từ khóa (Cloze)', icon: 'ph-eye-slash' },
+                        { id: 'typing', label: 'Luyện gõ đối chiếu', icon: 'ph-keyboard' },
+                        { id: 'chunking', label: 'Chia nhỏ cuốn chiếu', icon: 'ph-steps' }
+                    ];
+
+                container.innerHTML = modes.map(m => {
+                    const active = this.studyState.mode === m.id;
+                    return `
+                        <button onclick="app.setStudyMode('${m.id}')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'}">
+                            <i class="ph-bold ${m.icon}"></i> ${m.label}
+                        </button>
+                    `;
+                }).join('');
+            },
+
+            renderStudyStage() {
+                const card = this.studyState.queue[this.studyState.currentIndex];
+                const stage = document.getElementById('study-stage');
+
+                if (card.type === 'stem') {
+                    if (this.studyState.mode === 'flashcard') {
+                        this.renderStemFlashcard(card, stage);
+                    } else {
+                        this.renderStemFormulaCloze(card, stage);
+                    }
+                } else {
+                    if (this.studyState.mode === 'cloze') {
+                        this.renderSocialCloze(card, stage);
+                    } else if (this.studyState.mode === 'typing') {
+                        this.renderSocialTyping(card, stage);
+                    } else {
+                        this.renderSocialChunking(card, stage);
+                    }
+                }
+            },
+
+            // --- STEM MODE 1: 2-SIDED FLASHCARD ---
+            renderStemFlashcard(card, stage) {
+                stage.innerHTML = `
+                    <div class="perspective-1000 w-full cursor-pointer select-none" onclick="app.flipCard()">
+                        <div id="flashcard-inner" class="card-flip-inner relative w-full min-h-[380px] transform-style-3d ${this.studyState.isFlipped ? 'rotate-y-180' : ''}">
+                            
+                            <!-- FRONT -->
+                            <div class="backface-hidden absolute inset-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg p-6 sm:p-10 flex flex-col items-center justify-center text-center">
+                                <span class="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider mb-4">
+                                    Mặt trước • Định lý / Phản ứng
+                                </span>
+                                <h3 class="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white leading-snug max-w-2xl">
+                                    ${this.escapeHtml(card.front)}
+                                </h3>
+                                <div class="mt-8 text-xs text-slate-400 flex items-center gap-1.5">
+                                    <i class="ph ph-hand-tap text-base"></i> Chạm vào thẻ để lật xem công thức & ví dụ
+                                </div>
+                            </div>
+
+                            <!-- BACK -->
+                            <div class="backface-hidden rotate-y-180 absolute inset-0 bg-white dark:bg-slate-900 rounded-3xl border-2 border-emerald-500/40 shadow-lg p-6 sm:p-8 flex flex-col justify-between overflow-y-auto">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Công thức chuẩn</span>
+                                        <span class="text-xs text-slate-400">${this.escapeHtml(card.front)}</span>
+                                    </div>
+                                    
+                                    <!-- KaTeX Formula Box -->
+                                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700 text-center text-lg sm:text-xl overflow-x-auto">
+                                        ${this.renderMath(card.formula, true)}
+                                    </div>
+
+                                    ${card.explanation ? `
+                                        <div class="space-y-1">
+                                            <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Giải thích biến số & Điều kiện</div>
+                                            <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50/60 dark:bg-slate-800/40 p-3 rounded-xl">
+                                                ${this.renderMixedText(card.explanation)}
+                                            </p>
+                                        </div>
+                                    ` : ''}
+
+                                    ${card.example ? `
+                                        <div class="space-y-1">
+                                            <div class="text-xs font-bold uppercase tracking-wider text-indigo-500">Ví dụ áp dụng</div>
+                                            <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed bg-indigo-50/50 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
+                                                ${this.renderMixedText(card.example)}
+                                            </p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+
+                                <div class="mt-4 text-center text-xs text-slate-400">
+                                    Chạm để lật lại mặt trước
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                `;
+            },
+
+            flipCard() {
+                this.studyState.isFlipped = !this.studyState.isFlipped;
+                const inner = document.getElementById('flashcard-inner');
+                if (inner) {
+                    inner.classList.toggle('rotate-y-180', this.studyState.isFlipped);
+                }
+            },
+
+            // --- STEM MODE 2: FORMULA PIECE BUILDER / CLOZE ---
+            prepareFormulaTiles(formula) {
+                // Split formula intelligently by '=', '+', '-', '->', '<=>' or spaces
+                let rawParts = formula.split(/(\s*=\s*|\s*\+\s*|\s*-\s*|\s*->\s*|\s*<=>\s*)/).filter(p => p.trim().length > 0);
+                if (rawParts.length < 3) {
+                    // Fallback chunking by characters/braces
+                    rawParts = formula.match(/.{1,8}/g) || [formula];
+                }
+                this.studyState.targetTiles = rawParts.map(p => p.trim());
+                this.studyState.selectedTiles = [];
+                this.studyState.availableTiles = [...this.studyState.targetTiles]
+                    .map((val, idx) => ({ id: idx, val }))
+                    .sort(() => Math.random() - 0.5);
+            },
+
+            renderStemFormulaCloze(card, stage) {
+                const assembledLatex = this.studyState.selectedTiles.map(t => t.val).join(' ');
+                const isComplete = this.studyState.selectedTiles.length === this.studyState.targetTiles.length;
+                const isCorrect = assembledLatex.replace(/\s+/g, '') === this.studyState.targetTiles.join('').replace(/\s+/g, '');
+
+                stage.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg p-6 sm:p-8 space-y-6">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Luyện ghép mảnh công thức</span>
+                                <h3 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">${this.escapeHtml(card.front)}</h3>
+                            </div>
+                            <button onclick="app.prepareFormulaTiles(app.studyState.queue[app.studyState.currentIndex].formula); app.renderStudyStage();" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1">
+                                <i class="ph ph-arrow-counter-clockwise"></i> Xếp lại
+                            </button>
+                        </div>
+
+                        <!-- Assembly Area (Rendered KaTeX Live) -->
+                        <div class="min-h-[100px] p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border-2 ${isComplete ? (isCorrect ? 'border-emerald-500 bg-emerald-50/30' : 'border-rose-500 bg-rose-50/30') : 'border-dashed border-slate-300 dark:border-slate-700'} flex flex-col items-center justify-center text-center">
+                            ${assembledLatex ? `<div class="text-lg sm:text-xl">${this.renderMath(assembledLatex, true)}</div>` : `<span class="text-sm text-slate-400">Chọn các mảnh ghép bên dưới theo đúng thứ tự công thức...</span>`}
+                        </div>
+
+                        ${isComplete ? `
+                            <div class="p-3.5 rounded-xl text-sm font-medium flex items-center justify-between ${isCorrect ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200' : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-200'}">
+                                <span>${isCorrect ? '🎉 Chính xác tuyệt đối! Bạn đã nhớ cấu trúc công thức.' : '⚠️ Chưa khớp hoàn toàn. Hãy kiểm tra lại thứ tự các vế!'}</span>
+                                ${!isCorrect ? `<button onclick="app.showFullFormulaAnswer()" class="underline font-bold ml-2">Xem đáp án</button>` : ''}
+                            </div>
+                        ` : ''}
+
+                        <div id="formula-answer-reveal" class="hidden p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-center">
+                            <div class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">Công thức đúng:</div>
+                            ${this.renderMath(card.formula, true)}
+                        </div>
+
+                        <!-- Selected Chips (Click to remove) -->
+                        ${this.studyState.selectedTiles.length > 0 ? `
+                            <div class="flex flex-wrap gap-2">
+                                ${this.studyState.selectedTiles.map((tile, i) => `
+                                    <button onclick="app.unselectFormulaTile(${i})" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-sm font-mono shadow-sm hover:bg-indigo-700 transition-all">
+                                        ${this.renderMath(tile.val, false)}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+
+                        <!-- Available Pool -->
+                        <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <div class="text-xs font-medium text-slate-400 mb-2.5">Kho mảnh ghép biểu thức:</div>
+                            <div class="flex flex-wrap gap-2.5">
+                                ${this.studyState.availableTiles.map(tile => {
+                                    const used = this.studyState.selectedTiles.some(s => s.id === tile.id);
+                                    return `
+                                        <button onclick="app.selectFormulaTile(${tile.id})" ${used ? 'disabled' : ''} class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-emerald-500 text-sm shadow-sm transition-all ${used ? 'opacity-25 cursor-not-allowed' : ''}">
+                                            ${this.renderMath(tile.val, false)}
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        ${this.renderStudyInsightsBox(card)}
+                    </div>
+                `;
+            },
+
+            selectFormulaTile(tileId) {
+                const tile = this.studyState.availableTiles.find(t => t.id === tileId);
+                if (tile && !this.studyState.selectedTiles.some(s => s.id === tileId)) {
+                    this.studyState.selectedTiles.push(tile);
+                    this.renderStudyStage();
+                }
+            },
+
+            unselectFormulaTile(index) {
+                this.studyState.selectedTiles.splice(index, 1);
+                this.renderStudyStage();
+            },
+
+            showFullFormulaAnswer() {
+                const el = document.getElementById('formula-answer-reveal');
+                if (el) el.classList.remove('hidden');
+            },
+
+            // --- SOCIAL MODE 1: SMART CLOZE DELETION & FIRST-LETTER HINT ---
+            renderSocialCloze(card, stage) {
+                const level = this.studyState.clozeLevel; // 30, 50, 80, 100
+                const processedHtml = this.buildClozeHtml(card.content, level);
+
+                stage.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg p-6 sm:p-8 space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+                            <div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Che từ khóa thông minh</span>
+                                <h3 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">${this.escapeHtml(card.front)}</h3>
+                            </div>
+
+                            <!-- Cloze Density Controls -->
+                            <div class="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                                ${[
+                                    { val: 30, label: 'Ẩn 30%' },
+                                    { val: 50, label: 'Ẩn 50%' },
+                                    { val: 80, label: 'Ẩn 80%' },
+                                    { val: 100, label: 'Chữ cái đầu (100%)' }
+                                ].map(opt => `
+                                    <button onclick="app.setClozeLevel(${opt.val})" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${level === opt.val ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700'}">
+                                        ${opt.label}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Interactive Cloze Text -->
+                        <div class="text-base sm:text-lg leading-loose text-slate-800 dark:text-slate-100 bg-amber-50/30 dark:bg-slate-800/50 p-5 sm:p-6 rounded-2xl border border-amber-200/50 dark:border-slate-700/80">
+                            ${processedHtml}
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <span class="text-xs text-slate-500 flex items-center gap-1.5">
+                                <i class="ph ph-cursor-click text-base text-indigo-500"></i> Chạm vào từng ô trống để hé lộ từ bị ẩn
+                            </span>
+                            <button onclick="app.revealAllCloze()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors">
+                                Hiện toàn bộ văn bản
+                            </button>
+                        </div>
+
+                        ${this.renderStudyInsightsBox(card)}
+
+                        ${card.outline ? `
+                            <details class="group bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200/70 dark:border-slate-700/60">
+                                <summary class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 cursor-pointer flex items-center justify-between">
+                                    <span>Dàn ý phân cấp (Ý chính - Ý phụ)</span>
+                                    <i class="ph-bold ph-caret-down group-open:rotate-180 transition-transform"></i>
+                                </summary>
+                                <div class="mt-3 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed border-t border-slate-200 dark:border-slate-700 pt-3">
+                                    ${this.escapeHtml(card.outline)}
+                                </div>
+                            </details>
+                        ` : ''}
+                    </div>
+                `;
+            },
+
+            setClozeLevel(lvl) {
+                this.studyState.clozeLevel = lvl;
+                this.studyState.revealedClozes = new Set();
+                this.renderStudyStage();
+            },
+
+            revealAllCloze() {
+                document.querySelectorAll('.cloze-blank').forEach(el => {
+                    el.innerHTML = el.getAttribute('data-word');
+                    el.classList.remove('cloze-blank');
+                    el.classList.add('font-semibold', 'text-emerald-600', 'dark:text-emerald-400');
+                });
+            },
+
+            toggleSingleCloze(idx, word) {
+                const el = document.getElementById(`cloze-${idx}`);
+                if (!el) return;
+                if (this.studyState.revealedClozes.has(idx)) {
+                    this.studyState.revealedClozes.delete(idx);
+                    this.renderStudyStage();
+                } else {
+                    this.studyState.revealedClozes.add(idx);
+                    el.innerHTML = this.escapeHtml(word);
+                    el.classList.add('font-semibold', 'text-indigo-600', 'dark:text-indigo-400');
+                }
+            },
+
+            buildClozeHtml(rawContent, level) {
+                // Parse **keyword** markers first so we prioritize hiding them
+                const tokens = [];
+                const regex = /(\*\*[^*]+\*\*)|(\S+)/g;
+                let match;
+                while ((match = regex.exec(rawContent)) !== null) {
+                    if (match[1]) {
+                        // Bold keyword phrase -> split into words marked as priority
+                        const inner = match[1].slice(2, -2);
+                        inner.split(/\s+/).forEach(w => tokens.push({ word: w, priority: true }));
+                    } else {
+                        tokens.push({ word: match[2], priority: false });
+                    }
+                }
+
+                return tokens.map((tok, idx) => {
+                    // Deterministic pseudo-random based on index so toggling single word doesn't reshuffle others
+                    const hash = ((idx * 2654435761) % 100) / 100;
+                    const cleanWord = tok.word.replace(/^[.,;:!?()"“”]+|[.,;:!?()"“”]+$/g, '');
+                    const prefixPunct = tok.word.match(/^[.,;:!?()"“”]+/)?.[0] || '';
+                    const suffixPunct = tok.word.match(/[.,;:!?()"“”]+$/)?.[0] || '';
+
+                    if (!cleanWord) return this.escapeHtml(tok.word);
+
+                    let shouldHide = false;
+                    if (level === 100) {
+                        shouldHide = true; // First letter hint for every word
+                    } else if (level === 30) {
+                        shouldHide = tok.priority || hash < 0.2;
+                    } else if (level === 50) {
+                        shouldHide = tok.priority || hash < 0.45;
+                    } else if (level === 80) {
+                        shouldHide = tok.priority || hash < 0.78;
+                    }
+
+                    if (!shouldHide || this.studyState.revealedClozes.has(idx)) {
+                        return `${this.escapeHtml(prefixPunct)}<span class="${tok.priority ? 'font-semibold text-amber-700 dark:text-amber-300' : ''}">${this.escapeHtml(cleanWord)}</span>${this.escapeHtml(suffixPunct)}`;
+                    }
+
+                    // Format mask: First-letter hint if level === 100, else underscores with first letter hint on hover/option
+                    let mask = '';
+                    if (level === 100) {
+                        const firstChar = cleanWord.charAt(0);
+                        const rest = '•'.repeat(Math.max(1, cleanWord.length - 1));
+                        mask = `<span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">${this.escapeHtml(firstChar)}</span><span class="opacity-40 text-xs">${rest}</span>`;
+                    } else {
+                        mask = `<span class="font-mono text-xs text-indigo-500/80">${'&nbsp;'.repeat(Math.min(8, cleanWord.length + 1))}</span>`;
+                    }
+
+                    return `${this.escapeHtml(prefixPunct)}<span id="cloze-${idx}" data-word="${this.escapeHtml(cleanWord)}" onclick="app.toggleSingleCloze(${idx}, '${this.escapeHtml(cleanWord).replace(/'/g, "\\'")}')" class="cloze-blank" title="Nhấn để xem từ">${mask}</span>${this.escapeHtml(suffixPunct)}`;
+                }).join(' ');
+            },
+
+            // --- SOCIAL MODE 2: ACTIVE RECALL TYPING & WORD DIFF ---
+            renderSocialTyping(card, stage) {
+                stage.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg p-6 sm:p-8 space-y-5">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Luyện gõ đối chiếu trí nhớ (Active Recall)</span>
+                            <h3 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">${this.escapeHtml(card.front)}</h3>
+                            <p class="text-xs text-slate-500 mt-1">Hãy gõ lại nội dung khái niệm/đoạn văn từ trí nhớ của bạn, sau đó nhấn Kiểm tra độ chính xác.</p>
+                        </div>
+
+                        <textarea id="typing-input" rows="5" placeholder="Nhập lại nội dung bạn nhớ được tại đây..." class="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base leading-relaxed focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <button onclick="document.getElementById('typing-input').value = ''; document.getElementById('typing-diff-result').classList.add('hidden');" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                Xóa gõ lại
+                            </button>
+                            <button onclick="app.checkTypingRecall()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md flex items-center gap-2">
+                                <i class="ph-bold ph-check-circle"></i> So sánh & Chấm điểm
+                            </button>
+                        </div>
+
+                        <!-- Diff Result Output -->
+                        <div id="typing-diff-result" class="hidden space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Kết quả đối chiếu từng từ</span>
+                                <span id="typing-score-badge" class="px-3 py-1 rounded-full text-xs font-bold">Độ chính xác: 0%</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs">
+                                <span class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Khớp chính xác</span>
+                                <span class="flex items-center gap-1 text-rose-600 dark:text-rose-400"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Từ bị thiếu hoặc sai</span>
+                            </div>
+                            <div id="typing-diff-body" class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-base leading-loose"></div>
+                        </div>
+
+                        ${this.renderStudyInsightsBox(card)}
+                    </div>
+                `;
+            },
+
+            checkTypingRecall() {
+                const card = this.studyState.queue[this.studyState.currentIndex];
+                const userRaw = document.getElementById('typing-input').value.trim();
+                if (!userRaw) {
+                    this.showToast('Bạn hãy nhập nội dung trước khi đối chiếu nhé!', 'info');
+                    return;
+                }
+
+                // Strip markdown bold ** from original
+                const cleanOriginal = card.content.replace(/\*\*/g, '');
+                const origWords = cleanOriginal.split(/\s+/);
+                const normalize = (w) => w.toLowerCase().replace(/[.,;:!?()"“”\-]/g, '');
+
+                const userWordSet = userRaw.split(/\s+/).map(normalize).filter(Boolean);
+                let matchedCount = 0;
+
+                // Track matched indices in user input to preserve order sensitivity
+                let searchStartIdx = 0;
+                const diffHtml = origWords.map(origW => {
+                    const normOrig = normalize(origW);
+                    if (!normOrig) return this.escapeHtml(origW);
+
+                    // Look ahead within a small window in user's typed words
+                    let foundIdx = -1;
+                    for (let i = searchStartIdx; i < Math.min(userWordSet.length, searchStartIdx + 8); i++) {
+                        if (userWordSet[i] === normOrig) {
+                            foundIdx = i;
+                            break;
+                        }
+                    }
+                    // Fallback global check if user reordered slightly
+                    if (foundIdx === -1 && userWordSet.includes(normOrig)) {
+                        foundIdx = searchStartIdx;
+                    }
+
+                    if (foundIdx !== -1) {
+                        matchedCount++;
+                        if (foundIdx >= searchStartIdx) searchStartIdx = foundIdx + 1;
+                        return `<span class="px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 font-medium">${this.escapeHtml(origW)}</span>`;
+                    } else {
+                        return `<span class="px-1 py-0.5 rounded bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 underline decoration-rose-400 font-medium">${this.escapeHtml(origW)}</span>`;
+                    }
+                }).join(' ');
+
+                const accuracy = Math.round((matchedCount / origWords.length) * 100);
+                const resultBox = document.getElementById('typing-diff-result');
+                const scoreBadge = document.getElementById('typing-score-badge');
+                const diffBody = document.getElementById('typing-diff-body');
+
+                resultBox.classList.remove('hidden');
+                scoreBadge.textContent = `Độ chính xác: ${accuracy}% (${matchedCount}/${origWords.length} từ)`;
+                scoreBadge.className = `px-3 py-1 rounded-full text-xs font-bold ${accuracy >= 80 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' : accuracy >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300'}`;
+                diffBody.innerHTML = diffHtml;
+            },
+
+            // --- SOCIAL MODE 3: CHUNKING (PROGRESSIVE SENTENCE / CLAUSE REVEAL) ---
+            renderSocialChunking(card, stage) {
+                const cleanText = card.content.replace(/\*\*/g, '');
+                // Split by sentence boundaries or semicolons/commas for digestible chunks
+                const chunks = cleanText.split(/(?<=[.;:])\s+|(?<=,)\s+(?=[a-zà-ỹ]{3,}\s+[a-zà-ỹ]{3,})/i).filter(c => c.trim().length > 0);
+                const step = Math.min(this.studyState.chunkStep, chunks.length);
+
+                stage.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg p-6 sm:p-8 space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Học cuốn chiếu từng ý (Chunking)</span>
+                                <h3 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">${this.escapeHtml(card.front)}</h3>
+                            </div>
+                            <span class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold">
+                                Ý ${step} / ${chunks.length}
+                            </span>
+                        </div>
+
+                        <div class="space-y-3">
+                            ${chunks.map((chunk, idx) => {
+                                const isUnlocked = idx < step;
+                                const isCurrent = idx === step - 1;
+                                return `
+                                    <div class="p-4 rounded-2xl border transition-all ${isUnlocked ? (isCurrent ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-400/60 shadow-sm' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700') : 'bg-slate-100/60 dark:bg-slate-800/20 border-dashed border-slate-200 dark:border-slate-800 opacity-50'}">
+                                        <div class="flex items-start gap-3">
+                                            <span class="w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 ${isUnlocked ? 'bg-amber-500 text-white' : 'bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}">
+                                                ${idx + 1}
+                                            </span>
+                                            <p class="text-base leading-relaxed ${isUnlocked ? 'text-slate-800 dark:text-slate-100' : 'blur-sm select-none text-slate-400'}">
+                                                ${this.escapeHtml(chunk)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2">
+                            <button onclick="app.studyState.chunkStep = 1; app.renderStudyStage();" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                Học lại từ ý 1
+                            </button>
+                            ${step < chunks.length ? `
+                                <button onclick="app.studyState.chunkStep++; app.renderStudyStage();" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shadow-md flex items-center gap-2">
+                                    Mở tiếp ý ${step + 1} <i class="ph-bold ph-arrow-right"></i>
+                                </button>
+                            ` : `
+                                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                    <i class="ph-bold ph-check-circle text-lg"></i> Đã mở toàn bộ các ý! Hãy nhẩm lại cả đoạn.
+                                </span>
+                            `}
+                        </div>
+
+                        ${this.renderStudyInsightsBox(card)}
+                    </div>
+                `;
+            },
+
+            // --- SHARED STUDY INSIGHTS (EXPLANATION + EXAMPLE + LIVE AI ENRICH) ---
+            renderStudyInsightsBox(card) {
+                const hasInsights = Boolean((card.explanation && card.explanation.trim()) || (card.example && card.example.trim()));
+                return `
+                    <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <details ${hasInsights ? 'open' : ''} class="group bg-indigo-50/40 dark:bg-indigo-950/20 rounded-2xl p-4 border border-indigo-200/60 dark:border-indigo-900/40">
+                            <summary class="flex flex-wrap items-center justify-between gap-2 cursor-pointer select-none">
+                                <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                                    <i class="ph-bold ph-lightbulb text-amber-500 text-base"></i>
+                                    Giải thích dễ hiểu & Ví dụ minh họa
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="study-ai-enrich-btn" onclick="event.preventDefault(); event.stopPropagation(); app.enrichCurrentStudyCardWithAi();" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-95 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1">
+                                        <i class="ph-bold ph-sparkle"></i> <span>${hasInsights ? '✨ AI giải thích sâu hơn' : '✨ Tạo giải thích & ví dụ bằng AI'}</span>
+                                    </button>
+                                    <i class="ph-bold ph-caret-down text-slate-400 group-open:rotate-180 transition-transform"></i>
+                                </div>
+                            </summary>
+
+                            <div class="mt-3 space-y-2.5 text-sm">
+                                ${card.explanation ? `
+                                    <div class="p-3 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-indigo-100 dark:border-slate-800">
+                                        <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-1">💡 Giải thích bản chất</div>
+                                        <div class="text-slate-700 dark:text-slate-200 leading-relaxed">${this.renderMixedText(card.explanation)}</div>
+                                    </div>
+                                ` : ''}
+                                ${card.example ? `
+                                    <div class="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
+                                        <div class="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">🎯 Ví dụ minh họa dễ nhớ</div>
+                                        <div class="text-slate-700 dark:text-slate-200 leading-relaxed">${this.renderMixedText(card.example)}</div>
+                                    </div>
+                                ` : ''}
+                                ${!hasInsights ? `
+                                    <p class="text-xs text-slate-500 italic">Thẻ này chưa có giải thích mở rộng. Nhấn nút "✨ Tạo giải thích & ví dụ bằng AI" ở góc trên để AI tự động bổ sung ngay!</p>
+                                ` : ''}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            },
+
+            // --- SM-2 SPACED REPETITION ALGORITHM ---
+            calculateSm2(card, quality) {
+                // quality: 1 (Quên), 3 (Khó), 4 (Tốt), 5 (Dễ)
+                let { interval = 0, repetition = 0, efactor = 2.5 } = card.srs || {};
+
+                if (quality < 3) {
+                    repetition = 0;
+                    interval = 0; // Review again immediately / same day
+                } else {
+                    if (repetition === 0) {
+                        interval = 1;
+                    } else if (repetition === 1) {
+                        interval = 3;
+                    } else {
+                        interval = Math.round(interval * efactor);
+                    }
+                    if (quality === 3) interval = Math.max(1, Math.round(interval * 0.8));
+                    if (quality === 5) interval = Math.round(interval * 1.3) + 1;
+                    repetition += 1;
+                }
+
+                efactor = efactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+                if (efactor < 1.3) efactor = 1.3;
+
+                const nextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
+                return { interval, repetition, efactor, nextReview };
+            },
+
+            updateSrsButtonLabels(card) {
+                [1, 3, 4, 5].forEach(q => {
+                    const sim = this.calculateSm2(card, q);
+                    const el = document.getElementById(`next-int-${q}`);
+                    if (el) {
+                        el.textContent = sim.interval === 0 ? 'Ôn lại ngay' : `${sim.interval} ngày`;
+                    }
+                });
+            },
+
+            rateCard(quality) {
+                const currentCard = this.studyState.queue[this.studyState.currentIndex];
+                const newSrs = this.calculateSm2(currentCard, quality);
+
+                // Update card in master data
+                const masterIdx = this.data.cards.findIndex(c => c.id === currentCard.id);
+                if (masterIdx !== -1) {
+                    this.data.cards[masterIdx].srs = newSrs;
+                    this.saveData();
+                }
+
+                // If forgotten (quality === 1), re-queue at the end of current session
+                if (quality === 1) {
+                    this.studyState.queue.push(currentCard);
+                    this.showToast('Thẻ sẽ xuất hiện lại ở cuối phiên học để bạn củng cố!', 'info');
+                }
+
+                this.studyState.currentIndex++;
+                this.loadCurrentCard();
+            },
+
+            // --- LIBRARY VIEW ---
+            renderLibrary() {
+                const search = (document.getElementById('library-search').value || '').toLowerCase();
+                const subFilter = document.getElementById('library-subject-filter').value;
+                const typeFilter = document.getElementById('library-type-filter').value;
+
+                // Populate subject dropdown while keeping selected value
+                const subSelect = document.getElementById('library-subject-filter');
+                const currentVal = subSelect.value;
+                subSelect.innerHTML = `<option value="all">Tất cả môn học</option>` +
+                    this.data.subjects.map(s => `<option value="${s.id}">${this.escapeHtml(s.name)}</option>`).join('');
+                subSelect.value = currentVal || 'all';
+
+                const filtered = this.data.cards.filter(c => {
+                    if (subFilter !== 'all' && c.subjectId !== subFilter) return false;
+                    if (typeFilter !== 'all' && c.type !== typeFilter) return false;
+                    if (search) {
+                        const hay = `${c.front} ${c.formula || ''} ${c.content || ''} ${c.explanation || ''}`.toLowerCase();
+                        if (!hay.includes(search)) return false;
+                    }
+                    return true;
+                });
+
+                const list = document.getElementById('library-list');
+                if (filtered.length === 0) {
+                    list.innerHTML = `<div class="col-span-full text-center py-12 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-500">Không tìm thấy thẻ học nào phù hợp.</div>`;
+                    return;
+                }
+
+                list.innerHTML = filtered.map(card => {
+                    const sub = this.data.subjects.find(s => s.id === card.subjectId);
+                    const isStem = card.type === 'stem';
+                    const hasInsights = Boolean((card.explanation && card.explanation.trim()) || (card.example && card.example.trim()));
+                    const previewHtml = isStem
+                        ? `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 overflow-x-auto text-sm">${this.renderMath(card.formula, false)}</div>`
+                        : `<p class="text-sm text-slate-600 dark:text-slate-300 line-clamp-2">${this.escapeHtml(card.content.replace(/\*\*/g, ''))}</p>`;
+
+                    return `
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-4">
+                            <div class="space-y-2.5">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase ${isStem ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'}">
+                                            ${sub ? this.escapeHtml(sub.name) : 'Môn học'}
+                                        </span>
+                                        ${hasInsights ? `
+                                            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" title="Đã có giải thích dễ hiểu & ví dụ minh họa">
+                                                💡 Có Giải thích & Ví dụ
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="app.studySingleCard('${card.id}')" title="Học thẻ này" class="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10">
+                                            <i class="ph-bold ph-play"></i>
+                                        </button>
+                                        <button onclick="app.openCardModal('${card.id}')" title="Chỉnh sửa" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                            <i class="ph-bold ph-pencil-simple"></i>
+                                        </button>
+                                        <button onclick="app.deleteCard('${card.id}')" title="Xóa thẻ" class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                                            <i class="ph-bold ph-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <h4 class="font-bold text-slate-900 dark:text-white text-base">${this.escapeHtml(card.front)}</h4>
+                                ${previewHtml}
+                                ${hasInsights ? `
+                                    <details class="text-xs bg-slate-50/80 dark:bg-slate-800/50 rounded-xl p-2.5 border border-slate-200/70 dark:border-slate-700/70">
+                                        <summary class="font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer">Xem giải thích & ví dụ minh họa</summary>
+                                        <div class="mt-2 space-y-1.5 text-slate-600 dark:text-slate-300 leading-relaxed">
+                                            ${card.explanation ? `<div><strong class="text-slate-800 dark:text-slate-100">💡 Giải thích:</strong> ${this.renderMixedText(card.explanation)}</div>` : ''}
+                                            ${card.example ? `<div><strong class="text-amber-700 dark:text-amber-400">🎯 Ví dụ:</strong> ${this.renderMixedText(card.example)}</div>` : ''}
+                                        </div>
+                                    </details>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            studySingleCard(cardId) {
+                const card = this.data.cards.find(c => c.id === cardId);
+                if (!card) return;
+                this.studyState.queue = [card];
+                this.studyState.currentIndex = 0;
+                this.navigate('study');
+                this.loadCurrentCard();
+            },
+
+            deleteCard(cardId) {
+                this.data.cards = this.data.cards.filter(c => c.id !== cardId);
+                this.saveData();
+                this.renderLibrary();
+                this.showToast('Đã xóa thẻ học!', 'info');
+            },
+
+            // --- MODALS: CREATE / EDIT CARD & SUBJECT ---
+            openCardModal(cardId = null, defaultSubjectId = null) {
+                const modal = document.getElementById('card-modal');
+                const subSelect = document.getElementById('card-subject');
+                subSelect.innerHTML = this.data.subjects.map(s => `<option value="${s.id}">${this.escapeHtml(s.name)}</option>`).join('');
+
+                if (cardId) {
+                    const card = this.data.cards.find(c => c.id === cardId);
+                    if (!card) return;
+                    document.getElementById('card-modal-title').textContent = 'Chỉnh sửa thẻ ghi nhớ';
+                    document.getElementById('card-id').value = card.id;
+                    subSelect.value = card.subjectId;
+                    document.getElementById('card-type').value = card.type;
+                    document.getElementById('card-front').value = card.front;
+                    document.getElementById('card-formula').value = card.formula || '';
+                    document.getElementById('card-explanation').value = card.explanation || '';
+                    document.getElementById('card-example').value = card.example || '';
+                    document.getElementById('card-content').value = card.content || '';
+                    document.getElementById('card-outline').value = card.outline || '';
+                    document.getElementById('card-shared-explanation').value = card.explanation || '';
+                    document.getElementById('card-shared-example').value = card.example || '';
+                } else {
+                    document.getElementById('card-modal-title').textContent = 'Tạo thẻ ghi nhớ mới';
+                    document.getElementById('card-form').reset();
+                    document.getElementById('card-id').value = '';
+                    if (defaultSubjectId) subSelect.value = defaultSubjectId;
+                    this.onModalSubjectChange();
+                }
+
+                this.toggleFormFields();
+                this.updateFormulaPreview();
+                modal.classList.remove('hidden');
+            },
+
+            closeCardModal() {
+                document.getElementById('card-modal').classList.add('hidden');
+            },
+
+            onModalSubjectChange() {
+                const subId = document.getElementById('card-subject').value;
+                const sub = this.data.subjects.find(s => s.id === subId);
+                if (sub) {
+                    document.getElementById('card-type').value = sub.category;
+                    this.toggleFormFields();
+                }
+            },
+
+            toggleFormFields() {
+                const type = document.getElementById('card-type').value;
+                document.getElementById('stem-fields').classList.toggle('hidden', type !== 'stem');
+                document.getElementById('social-fields').classList.toggle('hidden', type !== 'social');
+            },
+
+            insertLatex(snippet) {
+                const textarea = document.getElementById('card-formula');
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = textarea.value;
+                textarea.value = text.substring(0, start) + snippet + text.substring(end);
+                textarea.focus();
+                textarea.selectionStart = textarea.selectionEnd = start + snippet.length;
+                this.updateFormulaPreview();
+            },
+
+            updateFormulaPreview() {
+                const val = document.getElementById('card-formula').value.trim();
+                const preview = document.getElementById('formula-preview');
+                if (!val) {
+                    preview.innerHTML = '<span class="text-xs text-slate-400">Xem trước công thức tại đây...</span>';
+                    return;
+                }
+                preview.innerHTML = this.renderMath(val, true);
+            },
+
+            wrapSelectionBold() {
+                const textarea = document.getElementById('card-content');
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const selected = textarea.value.substring(start, end);
+                if (!selected) {
+                    this.showToast('Hãy bôi đen cụm từ khóa trong đoạn văn trước!', 'info');
+                    return;
+                }
+                textarea.value = textarea.value.substring(0, start) + `**${selected}**` + textarea.value.substring(end);
+            },
+
+            saveCard(event) {
+                event.preventDefault();
+                const id = document.getElementById('card-id').value;
+                const type = document.getElementById('card-type').value;
+                const sharedExp = document.getElementById('card-shared-explanation').value.trim();
+                const sharedEx = document.getElementById('card-shared-example').value.trim();
+                const cardObj = {
+                    id: id || 'card-' + Date.now(),
+                    subjectId: document.getElementById('card-subject').value,
+                    type,
+                    front: document.getElementById('card-front').value.trim(),
+                    formula: type === 'stem' ? document.getElementById('card-formula').value.trim() : '',
+                    explanation: sharedExp || (type === 'stem' ? document.getElementById('card-explanation').value.trim() : ''),
+                    example: sharedEx || (type === 'stem' ? document.getElementById('card-example').value.trim() : ''),
+                    content: type === 'social' ? document.getElementById('card-content').value.trim() : '',
+                    outline: type === 'social' ? document.getElementById('card-outline').value.trim() : '',
+                    srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                };
+
+                if (type === 'stem' && !cardObj.formula) {
+                    this.showToast('Vui lòng nhập công thức cho thẻ môn Tự Nhiên!', 'error');
+                    return;
+                }
+                if (type === 'social' && !cardObj.content) {
+                    this.showToast('Vui lòng nhập nội dung đoạn văn cho thẻ môn Xã Hội!', 'error');
+                    return;
+                }
+
+                if (id) {
+                    const idx = this.data.cards.findIndex(c => c.id === id);
+                    if (idx !== -1) {
+                        cardObj.srs = this.data.cards[idx].srs;
+                        this.data.cards[idx] = cardObj;
+                    }
+                    this.showToast('Đã cập nhật thẻ học!', 'success');
+                } else {
+                    this.data.cards.unshift(cardObj);
+                    this.showToast('Đã thêm thẻ học mới!', 'success');
+                }
+
+                this.saveData();
+                this.closeCardModal();
+                this.renderDashboard();
+                this.renderLibrary();
+            },
+
+            // --- SINGLE CARD AI ENRICHMENT (MODAL & STUDY STAGE) ---
+            async generateSingleCardInsights({ type, front, coreBody }) {
+                const apiKey = (document.getElementById('ai-api-key')?.value || '').trim();
+                const model = document.getElementById('ai-model-select')?.value || 'gemini-3-flash-preview';
+
+                if (!apiKey) {
+                    // Smart offline fallback if user hasn't entered API key
+                    await new Promise(r => setTimeout(r, 500));
+                    if (type === 'stem') {
+                        return {
+                            explanation: `Bản chất của "${front}" là biểu diễn mối liên hệ định lượng giữa các đại lượng trong biểu thức $${coreBody}$. Cần lưu ý điều kiện xác định và đơn vị chuẩn quốc tế (SI) của từng biến số trước khi thay số.`,
+                            example: `Ví dụ áp dụng: Cho các giá trị cơ bản vào công thức $${coreBody}$, tính từng vế theo thứ tự ưu tiên để kiểm tra độ lớn và thứ nguyên của kết quả.`
+                        };
+                    }
+                    return {
+                        explanation: `Luận điểm "${front}" nhấn mạnh bản chất cốt lõi và mối quan hệ biện chứng của khái niệm. Khi trình bày bài thi, cần làm rõ các từ khóa trọng tâm đã đánh dấu để tránh lạc đề.`,
+                        example: `Ví dụ liên hệ thực tế: Vận dụng "${front}" để giải thích các hiện tượng trong đời sống xã hội và đường lối phát triển kinh tế - văn hóa ở Việt Nam hiện nay.`
+                    };
+                }
+
+                const prompt = type === 'stem'
+                    ? `Hãy giải thích thật dễ hiểu và cho 1 ví dụ áp dụng ngắn gọn, dễ nhớ cho thẻ công thức Tự Nhiên sau:\n- Tên công thức/định lý: ${front}\n- Công thức LaTeX: ${coreBody}\nYêu cầu trả về JSON gồm 2 trường: "explanation" (giải thích bản chất trực quan, ý nghĩa từng đại lượng, đơn vị, dùng $...$ cho công thức nội dòng) và "example" (1 bài tập ví dụ siêu ngắn có lời giải hoặc ứng dụng thực tế dễ nhớ).`
+                    : `Hãy giải thích thật dễ hiểu và cho 1 ví dụ minh họa sinh động, dễ nhớ cho thẻ kiến thức Xã Hội sau:\n- Câu hỏi/Khái niệm: ${front}\n- Nội dung: ${coreBody}\nYêu cầu trả về JSON gồm 2 trường: "explanation" (giải thích bản chất bằng ngôn ngữ đời thường gần gũi, dễ hiểu nhất) và "example" (1 ví dụ thực tế cụ thể ở Việt Nam hoặc đời sống hằng ngày giúp nhớ ngay khái niệm này).`;
+
+                const payload = {
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: 'OBJECT',
+                            properties: {
+                                explanation: { type: 'STRING' },
+                                example: { type: 'STRING' }
+                            },
+                            required: ['explanation', 'example']
+                        }
+                    }
+                };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                const data = await this.fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error('Không nhận được phản hồi từ AI.');
+                return JSON.parse(text);
+            },
+
+            async enrichCardFormWithAi() {
+                const type = document.getElementById('card-type').value;
+                const front = document.getElementById('card-front').value.trim();
+                const coreBody = type === 'stem'
+                    ? document.getElementById('card-formula').value.trim()
+                    : document.getElementById('card-content').value.trim();
+
+                if (!front || !coreBody) {
+                    this.showToast('Vui lòng nhập Tên thẻ và Công thức/Nội dung trước khi gọi AI!', 'error');
+                    return;
+                }
+
+                const btn = document.getElementById('modal-ai-enrich-btn');
+                const origHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> <span>Đang phân tích...</span>`;
+
+                try {
+                    const res = await this.generateSingleCardInsights({ type, front, coreBody });
+                    document.getElementById('card-shared-explanation').value = res.explanation || '';
+                    document.getElementById('card-shared-example').value = res.example || '';
+                    if (type === 'stem') {
+                        document.getElementById('card-explanation').value = res.explanation || '';
+                        document.getElementById('card-example').value = res.example || '';
+                    }
+                    this.showToast('AI đã tạo xong Giải thích dễ hiểu & Ví dụ minh họa!', 'success');
+                } catch (err) {
+                    this.showToast(`Lỗi AI: ${err.message}`, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                }
+            },
+
+            async enrichCurrentStudyCardWithAi() {
+                const card = this.studyState.queue[this.studyState.currentIndex];
+                if (!card) return;
+
+                const btn = document.getElementById('study-ai-enrich-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> <span>AI đang viết...</span>`;
+                }
+
+                try {
+                    const coreBody = card.type === 'stem' ? card.formula : card.content;
+                    const res = await this.generateSingleCardInsights({
+                        type: card.type,
+                        front: card.front,
+                        coreBody
+                    });
+
+                    card.explanation = res.explanation || card.explanation;
+                    card.example = res.example || card.example;
+
+                    const masterIdx = this.data.cards.findIndex(c => c.id === card.id);
+                    if (masterIdx !== -1) {
+                        this.data.cards[masterIdx].explanation = card.explanation;
+                        this.data.cards[masterIdx].example = card.example;
+                        this.saveData();
+                    }
+
+                    this.renderStudyStage();
+                    this.showToast('Đã cập nhật Giải thích & Ví dụ mới từ AI!', 'success');
+                } catch (err) {
+                    this.showToast(`Lỗi AI: ${err.message}`, 'error');
+                    if (btn) btn.disabled = false;
+                }
+            },
+
+            // --- SUBJECT MODAL & AI CONFIG ---
+            openSubjectModal() {
+                document.getElementById('subject-name').value = '';
+                document.getElementById('subject-category').value = 'stem';
+                document.getElementById('subject-modal').classList.remove('hidden');
+            },
+
+            closeSubjectModal() {
+                document.getElementById('subject-modal').classList.add('hidden');
+            },
+
+            saveSubject(event) {
+                event.preventDefault();
+                const name = document.getElementById('subject-name').value.trim();
+                const category = document.getElementById('subject-category').value;
+                if (!name) return;
+
+                this.data.subjects.push({
+                    id: 'sub-' + Date.now(),
+                    name,
+                    category
+                });
+                this.saveData();
+                this.closeSubjectModal();
+                this.renderDashboard();
+                this.showToast(`Đã tạo môn học "${name}"!`, 'success');
+            },
+
+            loadAiConfig() {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(AI_CONFIG_KEY) || '{}');
+                    const keyInput = document.getElementById('ai-api-key');
+                    const modelSelect = document.getElementById('ai-model-select');
+                    if (keyInput && saved.apiKey) keyInput.value = saved.apiKey;
+                    if (modelSelect && saved.model) modelSelect.value = saved.model;
+                } catch (e) {
+                    console.warn('Không thể tải cấu hình AI:', e);
+                }
+            },
+
+            saveAiConfig() {
+                try {
+                    const apiKey = document.getElementById('ai-api-key')?.value || '';
+                    const model = document.getElementById('ai-model-select')?.value || 'gemini-3-flash-preview';
+                    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ apiKey, model }));
+                } catch (e) {
+                    console.warn('Không thể lưu cấu hình AI:', e);
+                }
+            },
+
+            toggleApiKeyVisibility() {
+                const input = document.getElementById('ai-api-key');
+                const eye = document.getElementById('ai-key-eye');
+                if (!input || !eye) return;
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    eye.classList.replace('ph-eye', 'ph-eye-slash');
+                } else {
+                    input.type = 'password';
+                    eye.classList.replace('ph-eye-slash', 'ph-eye');
+                }
+            },
+
+            openAiModal() {
+                const modal = document.getElementById('ai-modal');
+                const subSelect = document.getElementById('ai-target-subject');
+                subSelect.innerHTML = `<option value="auto">✨ Tự động phân loại / Tạo môn mới</option>` +
+                    this.data.subjects.map(s => `<option value="${s.id}">${this.escapeHtml(s.name)}</option>`).join('');
+                modal.classList.remove('hidden');
+            },
+
+            closeAiModal() {
+                document.getElementById('ai-modal').classList.add('hidden');
+            },
+
+            switchAiTab(tab) {
+                this.aiState.activeTab = tab;
+                ['text', 'image', 'topic'].forEach(t => {
+                    document.getElementById(`ai-panel-${t}`).classList.toggle('hidden', t !== tab);
+                    const btn = document.getElementById(`ai-tab-${t}`);
+                    if (t === tab) {
+                        btn.classList.add('bg-white', 'dark:bg-slate-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                        btn.classList.remove('text-slate-600', 'dark:text-slate-300');
+                    } else {
+                        btn.classList.remove('bg-white', 'dark:bg-slate-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                        btn.classList.add('text-slate-600', 'dark:text-slate-300');
+                    }
+                });
+            },
+
+            fillAiSamplePrompt(type) {
+                const textarea = document.getElementById('ai-raw-text');
+                if (type === 'stem') {
+                    textarea.value = `1. Phương trình trạng thái khí lý tưởng Clapeyron - Mendeleev: P.V = n.R.T, trong đó P là áp suất (atm hoặc Pa), V là thể tích (lít hoặc m³), n là số mol khí, R = 0.082 (lít.atm/mol.K) hoặc 8.314 (J/mol.K), T là nhiệt độ tuyệt đối (K).\n2. Phản ứng nhiệt nhôm khử sắt(III) oxit: Fe2O3 + 2Al -> Al2O3 + 2Fe (điều kiện nhiệt độ cao, tỏa nhiều nhiệt, dùng để hàn đường ray).`;
+                } else {
+                    textarea.value = `Ý thức theo quan điểm của chủ nghĩa duy vật biện chứng là hình ảnh chủ quan của thế giới khách quan, là sự phản ánh tích cực, tự giác, sáng tạo thế giới khách quan vào bộ óc con người thông qua hoạt động thực tiễn. Nguồn gốc tự nhiên của ý thức gồm bộ óc người và thế giới khách quan; nguồn gốc xã hội gồm lao động và ngôn ngữ.`;
+                }
+            },
+
+            bindPasteImageListener() {
+                window.addEventListener('paste', (e) => {
+                    const modal = document.getElementById('ai-modal');
+                    if (modal.classList.contains('hidden')) return;
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (const item of items) {
+                        if (item.type.startsWith('image/')) {
+                            const file = item.getAsFile();
+                            if (file) {
+                                this.switchAiTab('image');
+                                this.processImageFile(file);
+                                this.showToast('Đã dán ảnh từ Clipboard!', 'success');
+                            }
+                            break;
+                        }
+                    }
+                });
+            },
+
+            handleAiImageUpload(event) {
+                const file = event.target.files[0];
+                if (file) this.processImageFile(file);
+            },
+
+            processImageFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    const [header, base64] = dataUrl.split(',');
+                    const mimeMatch = header.match(/data:(.*);base64/);
+                    this.aiState.imageBase64 = base64;
+                    this.aiState.imageMimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+
+                    document.getElementById('ai-image-preview').src = dataUrl;
+                    document.getElementById('ai-image-placeholder').classList.add('hidden');
+                    document.getElementById('ai-image-preview-wrap').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            },
+
+            clearAiImage() {
+                this.aiState.imageBase64 = null;
+                this.aiState.imageMimeType = null;
+                document.getElementById('ai-image-input').value = '';
+                document.getElementById('ai-image-placeholder').classList.remove('hidden');
+                document.getElementById('ai-image-preview-wrap').classList.add('hidden');
+            },
+
+            runAiDemoMode() {
+                document.getElementById('ai-loading').classList.remove('hidden');
+                document.getElementById('ai-results-section').classList.add('hidden');
+                setTimeout(() => {
+                    document.getElementById('ai-loading').classList.add('hidden');
+                    const demoCards = [
+                        {
+                            selected: true,
+                            subjectName: 'Khoa học Trái đất',
+                            type: 'stem',
+                            front: 'Định luật hấp dẫn vũ trụ của Newton',
+                            formula: 'F = G \\frac{m_1 m_2}{r^2}',
+                            explanation: 'F: lực hấp dẫn (N); G = 6.674 \\times 10^{-11} \\text{ N}\\cdot\\text{m}^2/\\text{kg}^2; m₁, m₂: khối lượng hai vật (kg); r: khoảng cách giữa hai tâm vật thể (m).',
+                            example: 'Tính lực hút giữa Trái Đất và Mặt Trăng dựa trên khối lượng và khoảng cách trung bình r = 384,400 km.',
+                            content: '',
+                            outline: ''
+                        },
+                        {
+                            selected: true,
+                            subjectName: 'Hóa Đại Cương',
+                            type: 'stem',
+                            front: 'Phản ứng nhiệt nhôm khử Sắt(III) oxit',
+                            formula: '\\ce{Fe2O3 + 2Al ->[t^\\circ] Al2O3 + 2Fe}',
+                            explanation: 'Phản ứng tỏa nhiệt mạnh, nhôm khử oxit kim loại đứng sau Al trong dãy hoạt động hóa học ở nhiệt độ cao.',
+                            example: 'Ứng dụng để hàn đường ray xe lửa ngay tại công trường.',
+                            content: '',
+                            outline: ''
+                        },
+                        {
+                            selected: true,
+                            subjectName: 'Triết học Mác - Lênin',
+                            type: 'social',
+                            front: 'Bản chất và Nguồn gốc của Ý thức',
+                            formula: '',
+                            explanation: 'Ý thức không tự nhiên sinh ra mà là kết quả của cả quá trình tiến hóa sinh học (bộ óc người tiếp nhận thế giới bên ngoài) kết hợp với thực tiễn xã hội (lao động tạo ra công cụ và ngôn ngữ để giao tiếp, tư duy trừu tượng).',
+                            example: 'Ví dụ: Cùng nhìn một cơn mưa (thế giới khách quan), nhà nông nghĩ đến mùa màng tươi tốt, còn thi sĩ lại viết nên thơ ca — đó chính là tính chủ quan, sáng tạo của ý thức.',
+                            content: '**Ý thức** là hình ảnh **chủ quan** của thế giới **khách quan**, là sự phản ánh **tích cực, tự giác, sáng tạo** thế giới khách quan vào bộ óc con người thông qua **hoạt động thực tiễn**.',
+                            outline: '- Nguồn gốc tự nhiên: Bộ óc người và thế giới khách quan.\n- Nguồn gốc xã hội: Lao động và ngôn ngữ (nhân tố quyết định trực tiếp).'
+                        }
+                    ];
+                    this.aiState.generatedCards = demoCards;
+                    this.renderAiPreviewList();
+                    this.showToast('Đã tạo 3 thẻ mẫu từ chế độ AI Demo!', 'success');
+                }, 900);
+            },
+
+            async generateCardsWithAi() {
+                const apiKey = document.getElementById('ai-api-key').value.trim();
+                const model = document.getElementById('ai-model-select').value || 'gemini-3-flash-preview';
+                const tab = this.aiState.activeTab;
+
+                // Validate inputs
+                let parts = [];
+                if (tab === 'text') {
+                    const rawText = document.getElementById('ai-raw-text').value.trim();
+                    if (!rawText) {
+                        this.showToast('Vui lòng dán đoạn văn bản hoặc công thức trước!', 'error');
+                        return;
+                    }
+                    parts.push({ text: `Hãy phân tích nội dung giáo trình/tài liệu sau và trích xuất thành các thẻ flashcard học tập chuẩn xác:\n\n${rawText}` });
+                } else if (tab === 'image') {
+                    if (!this.aiState.imageBase64) {
+                        this.showToast('Vui lòng tải ảnh lên hoặc nhấn Ctrl+V để dán ảnh!', 'error');
+                        return;
+                    }
+                    const note = document.getElementById('ai-image-note').value.trim();
+                    parts.push({ text: `Đọc kỹ hình ảnh tài liệu/vở ghi này (bao gồm chữ viết tay, công thức toán/hóa học hoặc đoạn văn lý thuyết) và trích xuất thành danh sách thẻ ghi nhớ hoàn chỉnh. ${note ? 'Yêu cầu thêm: ' + note : ''}` });
+                    parts.push({
+                        inlineData: {
+                            mimeType: this.aiState.imageMimeType,
+                            data: this.aiState.imageBase64
+                        }
+                    });
+                } else if (tab === 'topic') {
+                    const topic = document.getElementById('ai-topic-input').value.trim();
+                    const count = document.getElementById('ai-topic-count').value;
+                    if (!topic) {
+                        this.showToast('Vui lòng nhập chủ đề hoặc câu hỏi ôn tập!', 'error');
+                        return;
+                    }
+                    parts.push({ text: `Hãy biên soạn đúng ${count} thẻ flashcard chuyên sâu, chuẩn xác về chủ đề: "${topic}".` });
+                }
+
+                // If no API key provided, offer seamless demo fallback
+                if (!apiKey) {
+                    this.showToast('Chưa nhập Gemini API Key — Đang chạy chế độ AI Demo để bạn trải nghiệm!', 'info');
+                    this.runAiDemoMode();
+                    return;
+                }
+
+                const systemInstruction = `Bạn là trợ lý học thuật chuyên nghiệp cho sinh viên đại học Việt Nam. Nhiệm vụ của bạn là phân tích dữ liệu đầu vào và trích xuất thành danh sách các thẻ ghi nhớ (flashcards) theo cấu trúc JSON nghiêm ngặt.
+Quy tắc phân loại:
+1. Nếu kiến thức thuộc nhóm Môn Tự Nhiên (Toán, Lý, Hóa, Khoa học Trái đất, Kỹ thuật...):
+   - Đặt "type": "stem"
+   - "front": Tên định lý, công thức hoặc phản ứng.
+   - "formula": Viết công thức chuẩn cú pháp LaTeX (KHÔNG bao gồm dấu $ bọc ngoài toàn bộ chuỗi; với phương trình hóa học dùng gói mhchem dạng \\ce{...}).
+   - "explanation": Giải thích rõ ký hiệu các biến số, đơn vị và điều kiện áp dụng (có thể dùng $...$ cho ký hiệu toán học nội dòng).
+   - "example": Một ví dụ minh họa hoặc ứng dụng ngắn gọn.
+   - Để trống "content" và "outline".
+2. Nếu kiến thức thuộc nhóm Môn Xã Hội (Triết học, Kinh tế chính trị, Lịch sử, Văn hóa, Luật...):
+   - Đặt "type": "social"
+   - "front": Câu hỏi trọng tâm hoặc tên khái niệm/luận điểm.
+   - "content": Đoạn văn bản chuẩn xác, mạch lạc. QUAN TRỌNG: Bọc các từ khóa cốt lõi trong dấu **từ khóa** (ví dụ: **thực tại khách quan**) để hệ thống tự động tạo bài tập che từ (Cloze Deletion).
+   - "explanation": Giải thích bản chất dễ hiểu bằng ngôn ngữ gần gũi, đời thường giúp người học nắm được ý nghĩa cốt lõi trước khi học thuộc lòng.
+   - "example": Một ví dụ minh họa thực tế sinh động, cụ thể (liên hệ đời sống hoặc lịch sử/xã hội Việt Nam) giúp dễ nhớ ngay lập tức.
+   - "outline": Dàn ý tóm tắt các ý chính/ý phụ bằng gạch đầu dòng (- và +).
+   - Để trống "formula".
+3. "subjectName": Gợi ý tên môn học phù hợp (ví dụ: "Toán Cao Cấp", "Hóa Đại Cương", "Triết học Mác - Lênin", "Cơ sở Văn hóa Việt Nam", "Khoa học Trái đất"...).`;
+
+                const payload = {
+                    contents: [{ role: 'user', parts }],
+                    systemInstruction: { parts: [{ text: systemInstruction }] },
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: 'ARRAY',
+                            items: {
+                                type: 'OBJECT',
+                                properties: {
+                                    subjectName: { type: 'STRING' },
+                                    type: { type: 'STRING', enum: ['stem', 'social'] },
+                                    front: { type: 'STRING' },
+                                    formula: { type: 'STRING' },
+                                    explanation: { type: 'STRING' },
+                                    example: { type: 'STRING' },
+                                    content: { type: 'STRING' },
+                                    outline: { type: 'STRING' }
+                                },
+                                required: ['subjectName', 'type', 'front']
+                            }
+                        }
+                    }
+                };
+
+                const loadingEl = document.getElementById('ai-loading');
+                const resultsEl = document.getElementById('ai-results-section');
+                const btn = document.getElementById('ai-generate-btn');
+
+                loadingEl.classList.remove('hidden');
+                resultsEl.classList.add('hidden');
+                btn.disabled = true;
+                btn.classList.add('opacity-60');
+
+                try {
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                    const data = await this.fetchWithRetry(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const rawJsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!rawJsonText) throw new Error('Phản hồi từ AI trống hoặc không đúng định dạng.');
+
+                    const parsedCards = JSON.parse(rawJsonText);
+                    if (!Array.isArray(parsedCards) || parsedCards.length === 0) {
+                        throw new Error('AI không trích xuất được thẻ nào từ nội dung này.');
+                    }
+
+                    const targetSubId = document.getElementById('ai-target-subject').value;
+                    const chosenSub = this.data.subjects.find(s => s.id === targetSubId);
+
+                    this.aiState.generatedCards = parsedCards.map(c => ({
+                        selected: true,
+                        subjectName: chosenSub ? chosenSub.name : (c.subjectName || 'Kiến thức chung'),
+                        type: c.type === 'social' ? 'social' : 'stem',
+                        front: c.front || '',
+                        formula: c.formula || '',
+                        explanation: c.explanation || '',
+                        example: c.example || '',
+                        content: c.content || '',
+                        outline: c.outline || ''
+                    }));
+
+                    this.renderAiPreviewList();
+                    this.showToast(`AI đã trích xuất thành công ${this.aiState.generatedCards.length} thẻ!`, 'success');
+                } catch (err) {
+                    this.showToast(`Lỗi Gemini API: ${err.message}`, 'error');
+                } finally {
+                    loadingEl.classList.add('hidden');
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-60');
+                }
+            },
+
+            async fetchWithRetry(url, options, retries = 3, delay = 1000) {
+                for (let attempt = 0; attempt <= retries; attempt++) {
+                    const res = await fetch(url, options);
+                    if (res.ok) return await res.json();
+                    const errBody = await res.json().catch(() => ({}));
+                    const msg = errBody?.error?.message || `HTTP ${res.status}`;
+                    if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+                        await new Promise(r => setTimeout(r, delay * Math.pow(2, attempt)));
+                        continue;
+                    }
+                    throw new Error(msg);
+                }
+            },
+
+            renderAiPreviewList() {
+                const listEl = document.getElementById('ai-preview-list');
+                const sectionEl = document.getElementById('ai-results-section');
+                const cards = this.aiState.generatedCards;
+
+                sectionEl.classList.remove('hidden');
+                this.updateAiSelectedCounter();
+
+                listEl.innerHTML = cards.map((c, idx) => {
+                    const isStem = c.type === 'stem';
+                    return `
+                        <div class="p-4 sm:p-5 rounded-2xl border transition-all ${c.selected ? 'bg-white dark:bg-slate-800/90 border-indigo-300 dark:border-indigo-700 shadow-sm' : 'bg-slate-50/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60'}">
+                            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 dark:border-slate-700/80">
+                                <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                                    <input type="checkbox" ${c.selected ? 'checked' : ''} onchange="app.toggleAiCardSelect(${idx}, this.checked)" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500">
+                                    <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase ${isStem ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300'}">
+                                        ${isStem ? 'Tự Nhiên (STEM)' : 'Xã Hội'}
+                                    </span>
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-slate-400">Môn học:</span>
+                                    <input type="text" value="${this.escapeHtml(c.subjectName)}" oninput="app.updateAiCardField(${idx}, 'subjectName', this.value)" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 w-44 focus:ring-1 focus:ring-indigo-500 outline-none">
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Mặt trước (Tiêu đề / Khái niệm)</label>
+                                    <input type="text" value="${this.escapeHtml(c.front)}" oninput="app.updateAiCardField(${idx}, 'front', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-indigo-500">
+                                </div>
+
+                                ${isStem ? `
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[11px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 mb-1">Công thức LaTeX</label>
+                                            <textarea rows="2" oninput="app.updateAiCardField(${idx}, 'formula', this.value); app.refreshAiFormulaPreview(${idx});" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-xs outline-none focus:ring-1 focus:ring-emerald-500">${this.escapeHtml(c.formula)}</textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Xem trước KaTeX</label>
+                                            <div id="ai-katex-prev-${idx}" class="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 min-h-[54px] flex items-center justify-center overflow-x-auto text-sm">
+                                                ${this.renderMath(c.formula, true)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">💡 Giải thích đại lượng & Bản chất dễ hiểu</label>
+                                            <textarea rows="2" oninput="app.updateAiCardField(${idx}, 'explanation', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs outline-none focus:ring-1 focus:ring-indigo-500">${this.escapeHtml(c.explanation)}</textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[11px] font-semibold uppercase text-amber-600 dark:text-amber-400 mb-1">🎯 Ví dụ minh họa / Bài tập nhanh</label>
+                                            <textarea rows="2" oninput="app.updateAiCardField(${idx}, 'example', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs outline-none focus:ring-1 focus:ring-amber-500">${this.escapeHtml(c.example)}</textarea>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div>
+                                        <label class="block text-[11px] font-semibold uppercase text-amber-600 dark:text-amber-400 mb-1">Đoạn văn chuẩn & Từ khóa (**từ khóa** sẽ tự động che khi ôn)</label>
+                                        <textarea rows="3" oninput="app.updateAiCardField(${idx}, 'content', this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm leading-relaxed outline-none focus:ring-1 focus:ring-amber-500">${this.escapeHtml(c.content)}</textarea>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[11px] font-semibold uppercase text-indigo-600 dark:text-indigo-400 mb-1">💡 Giải thích bản chất dễ hiểu</label>
+                                            <textarea rows="2" oninput="app.updateAiCardField(${idx}, 'explanation', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs outline-none focus:ring-1 focus:ring-indigo-500">${this.escapeHtml(c.explanation)}</textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[11px] font-semibold uppercase text-amber-600 dark:text-amber-400 mb-1">🎯 Ví dụ minh họa thực tế</label>
+                                            <textarea rows="2" oninput="app.updateAiCardField(${idx}, 'example', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs outline-none focus:ring-1 focus:ring-amber-500">${this.escapeHtml(c.example)}</textarea>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Dàn ý tóm tắt</label>
+                                        <textarea rows="2" oninput="app.updateAiCardField(${idx}, 'outline', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs outline-none focus:ring-1 focus:ring-indigo-500">${this.escapeHtml(c.outline)}</textarea>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            updateAiCardField(idx, field, value) {
+                if (this.aiState.generatedCards[idx]) {
+                    this.aiState.generatedCards[idx][field] = value;
+                }
+            },
+
+            refreshAiFormulaPreview(idx) {
+                const c = this.aiState.generatedCards[idx];
+                const el = document.getElementById(`ai-katex-prev-${idx}`);
+                if (c && el) {
+                    el.innerHTML = this.renderMath(c.formula, true);
+                }
+            },
+
+            toggleAiCardSelect(idx, checked) {
+                if (this.aiState.generatedCards[idx]) {
+                    this.aiState.generatedCards[idx].selected = checked;
+                    this.renderAiPreviewList();
+                }
+            },
+
+            toggleAllAiCards(state) {
+                this.aiState.generatedCards.forEach(c => c.selected = state);
+                this.renderAiPreviewList();
+            },
+
+            updateAiSelectedCounter() {
+                const total = this.aiState.generatedCards.length;
+                const selected = this.aiState.generatedCards.filter(c => c.selected).length;
+                document.getElementById('ai-total-count').textContent = total;
+                document.getElementById('ai-selected-count').textContent = selected;
+            },
+
+            saveAiBatchCards() {
+                const chosen = this.aiState.generatedCards.filter(c => c.selected);
+                if (chosen.length === 0) {
+                    this.showToast('Vui lòng tích chọn ít nhất 1 thẻ để lưu!', 'error');
+                    return;
+                }
+
+                chosen.forEach((c, i) => {
+                    const subName = (c.subjectName || 'Kiến thức chung').trim();
+                    let subject = this.data.subjects.find(s => s.name.toLowerCase() === subName.toLowerCase());
+                    if (!subject) {
+                        subject = {
+                            id: 'sub-' + Date.now() + '-' + i,
+                            name: subName,
+                            category: c.type
+                        };
+                        this.data.subjects.push(subject);
+                    }
+
+                    this.data.cards.unshift({
+                        id: 'card-ai-' + Date.now() + '-' + i,
+                        subjectId: subject.id,
+                        type: c.type,
+                        front: c.front.trim(),
+                        formula: c.type === 'stem' ? c.formula.trim() : '',
+                        explanation: (c.explanation || '').trim(),
+                        example: (c.example || '').trim(),
+                        content: c.type === 'social' ? c.content.trim() : '',
+                        outline: c.type === 'social' ? (c.outline || '').trim() : '',
+                        srs: { interval: 0, repetition: 0, efactor: 2.5, nextReview: Date.now() }
+                    });
+                });
+
+                this.saveData();
+                this.closeAiModal();
+                this.renderDashboard();
+                this.renderLibrary();
+                this.showToast(`Đã lưu thành công ${chosen.length} thẻ AI vào kho học tập!`, 'success');
+            },
+
+            escapeHtml(str) {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
