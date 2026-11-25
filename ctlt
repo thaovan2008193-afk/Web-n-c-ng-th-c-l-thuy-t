@@ -152,6 +152,13 @@
 
             <!-- Right Actions -->
             <div class="flex items-center gap-1.5 sm:gap-2">
+                <!-- Pomodoro & Study Timer Pill Widget -->
+                <button onclick="app.openTimerModal()" id="header-timer-btn" title="Mở đồng hồ Pomodoro & Đếm giờ học" class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-slate-200/80 dark:border-slate-700 text-xs sm:text-sm font-mono font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all">
+                    <span id="header-timer-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <i class="ph-bold ph-timer text-indigo-600 dark:text-indigo-400 text-base"></i>
+                    <span id="header-timer-display">25:00</span>
+                </button>
+
                 <!-- Mobile AI Button -->
                 <button onclick="app.openAiModal()" class="md:hidden px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold shadow-sm flex items-center gap-1">
                     <i class="ph-bold ph-sparkle"></i> ✨ AI
@@ -218,7 +225,7 @@
             </div>
 
             <!-- Stats Overview Grid -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                     <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
                         <span class="text-xs font-semibold uppercase tracking-wider">Cần ôn hôm nay</span>
@@ -228,6 +235,17 @@
                     </div>
                     <div class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white" id="stat-due">0</div>
                     <p class="text-xs text-slate-500 mt-1">Thẻ đã tới lịch lặp lại</p>
+                </div>
+
+                <div onclick="app.openTimerModal()" class="cursor-pointer bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-sm transition-all">
+                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Giờ học hôm nay</span>
+                        <div class="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                            <i class="ph-bold ph-timer text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold text-violet-600 dark:text-violet-400" id="stat-study-time">0p</div>
+                    <p class="text-xs text-slate-500 mt-1"><span id="stat-pomo-count">0</span> phiên Pomodoro</p>
                 </div>
 
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
@@ -710,11 +728,96 @@
         </div>
     </div>
 
+    <!-- MODAL: POMODORO & STUDY TIMER -->
+    <div id="timer-modal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <i class="ph-bold ph-timer text-xl"></i>
+                    <div>
+                        <h3 class="font-bold text-base leading-tight">Đồng hồ Tập trung & Pomodoro</h3>
+                        <p class="text-[11px] text-indigo-100">Quản lý thời gian học sâu & nghỉ ngơi khoa học</p>
+                    </div>
+                </div>
+                <button onclick="app.closeTimerModal()" class="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <!-- Mode Tabs -->
+                <div class="grid grid-cols-4 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
+                    <button type="button" onclick="app.setTimerMode('pomodoro')" id="tmode-pomodoro" class="tmode-btn py-2 px-2 rounded-xl text-xs font-bold transition-all bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm">
+                        Tập trung
+                    </button>
+                    <button type="button" onclick="app.setTimerMode('shortBreak')" id="tmode-shortBreak" class="tmode-btn py-2 px-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-300">
+                        Nghỉ ngắn
+                    </button>
+                    <button type="button" onclick="app.setTimerMode('longBreak')" id="tmode-longBreak" class="tmode-btn py-2 px-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-300">
+                        Nghỉ dài
+                    </button>
+                    <button type="button" onclick="app.setTimerMode('stopwatch')" id="tmode-stopwatch" class="tmode-btn py-2 px-2 rounded-xl text-xs font-bold transition-all text-slate-600 dark:text-slate-300">
+                        Đếm tiến
+                    </button>
+                </div>
+
+                <!-- Circular / Big Digital Timer Display -->
+                <div class="relative flex flex-col items-center justify-center py-6 px-4 rounded-3xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700">
+                    <span id="timer-status-badge" class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 mb-2">
+                        Phiên tập trung 25 phút
+                    </span>
+                    <div id="modal-timer-display" class="text-5xl sm:text-6xl font-mono font-extrabold tracking-tight text-slate-900 dark:text-white my-1">
+                        25:00
+                    </div>
+                    <!-- Progress Bar -->
+                    <div class="w-4/5 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-3">
+                        <div id="timer-progress-bar" class="h-full bg-indigo-600 transition-all duration-500" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="flex items-center justify-center gap-3">
+                    <button type="button" id="timer-toggle-btn" onclick="app.toggleTimer()" class="flex-1 py-3.5 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all">
+                        <i class="ph-bold ph-play text-lg"></i> <span>Bắt đầu</span>
+                    </button>
+                    <button type="button" onclick="app.resetTimer()" title="Đặt lại đồng hồ" class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors">
+                        <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Custom Durations & Today's Summary -->
+                <div class="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
+                            <label class="block text-[10px] font-semibold uppercase text-slate-400">Học (phút)</label>
+                            <input type="number" id="cfg-pomo-min" min="1" max="120" value="25" onchange="app.updateTimerSettings()" class="w-full text-center bg-transparent font-bold text-sm text-slate-800 dark:text-white outline-none mt-0.5">
+                        </div>
+                        <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
+                            <label class="block text-[10px] font-semibold uppercase text-slate-400">Nghỉ ngắn</label>
+                            <input type="number" id="cfg-short-min" min="1" max="30" value="5" onchange="app.updateTimerSettings()" class="w-full text-center bg-transparent font-bold text-sm text-slate-800 dark:text-white outline-none mt-0.5">
+                        </div>
+                        <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
+                            <label class="block text-[10px] font-semibold uppercase text-slate-400">Nghỉ dài</label>
+                            <input type="number" id="cfg-long-min" min="5" max="60" value="15" onchange="app.updateTimerSettings()" class="w-full text-center bg-transparent font-bold text-sm text-slate-800 dark:text-white outline-none mt-0.5">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-indigo-50/50 dark:bg-indigo-950/20 px-3.5 py-2.5 rounded-xl">
+                        <span>Hôm nay đã học: <strong id="modal-today-minutes" class="text-indigo-600 dark:text-indigo-400">0 phút</strong></span>
+                        <span>Hoàn thành: <strong id="modal-today-pomos" class="text-emerald-600 dark:text-emerald-400">0 Pomodoro</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- APPLICATION LOGIC -->
     <script>
         const STORAGE_KEY = 'omnirecall_data_v1';
         const THEME_KEY = 'omnirecall_theme';
         const AI_CONFIG_KEY = 'omnirecall_ai_config_v1';
+        const TIMER_STATS_KEY = 'omnirecall_timer_stats_v1';
 
         // Rich Sample Data for Immediate Trial
         const DEFAULT_DATA = {
@@ -824,6 +927,17 @@
                 imageMimeType: null,
                 generatedCards: []
             },
+            timerState: {
+                mode: 'pomodoro', // 'pomodoro' | 'shortBreak' | 'longBreak' | 'stopwatch'
+                durations: { pomodoro: 25, shortBreak: 5, longBreak: 15 },
+                secondsLeft: 25 * 60,
+                elapsedSeconds: 0,
+                isRunning: false,
+                intervalId: null,
+                todayDate: new Date().toISOString().slice(0, 10),
+                todayStudySeconds: 0,
+                todayPomodoros: 0
+            },
             studyState: {
                 queue: [],
                 currentIndex: 0,
@@ -840,6 +954,7 @@
                 this.loadTheme();
                 this.loadData();
                 this.loadAiConfig();
+                this.loadTimerStats();
                 this.bindPasteImageListener();
                 this.navigate('dashboard');
             },
@@ -976,6 +1091,277 @@
                 document.getElementById('stat-total').textContent = this.data.cards.length;
                 document.getElementById('stat-stem').textContent = stemCount;
                 document.getElementById('stat-social').textContent = socialCount;
+                this.updateTimerStatsUi();
+            },
+
+            // --- POMODORO & STUDY TIMER ENGINE ---
+            loadTimerStats() {
+                try {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const saved = JSON.parse(localStorage.getItem(TIMER_STATS_KEY) || '{}');
+                    if (saved.durations) {
+                        this.timerState.durations = { ...this.timerState.durations, ...saved.durations };
+                        document.getElementById('cfg-pomo-min').value = this.timerState.durations.pomodoro;
+                        document.getElementById('cfg-short-min').value = this.timerState.durations.shortBreak;
+                        document.getElementById('cfg-long-min').value = this.timerState.durations.longBreak;
+                    }
+                    if (saved.todayDate === today) {
+                        this.timerState.todayDate = today;
+                        this.timerState.todayStudySeconds = saved.todayStudySeconds || 0;
+                        this.timerState.todayPomodoros = saved.todayPomodoros || 0;
+                    } else {
+                        this.timerState.todayDate = today;
+                        this.timerState.todayStudySeconds = 0;
+                        this.timerState.todayPomodoros = 0;
+                    }
+                    this.timerState.secondsLeft = this.timerState.durations.pomodoro * 60;
+                    this.renderTimerDisplays();
+                    this.updateTimerStatsUi();
+                } catch (e) {
+                    console.warn('Không thể tải thống kê giờ học:', e);
+                }
+            },
+
+            saveTimerStats() {
+                try {
+                    localStorage.setItem(TIMER_STATS_KEY, JSON.stringify({
+                        durations: this.timerState.durations,
+                        todayDate: this.timerState.todayDate,
+                        todayStudySeconds: this.timerState.todayStudySeconds,
+                        todayPomodoros: this.timerState.todayPomodoros
+                    }));
+                } catch (e) {
+                    console.warn('Không thể lưu thống kê giờ học:', e);
+                }
+            },
+
+            updateTimerStatsUi() {
+                const mins = Math.floor(this.timerState.todayStudySeconds / 60);
+                const hrs = Math.floor(mins / 60);
+                const remMins = mins % 60;
+                const formatted = hrs > 0 ? `${hrs}g ${remMins}p` : `${mins}p`;
+
+                const statTimeEl = document.getElementById('stat-study-time');
+                const statPomoEl = document.getElementById('stat-pomo-count');
+                const modalMinEl = document.getElementById('modal-today-minutes');
+                const modalPomoEl = document.getElementById('modal-today-pomos');
+
+                if (statTimeEl) statTimeEl.textContent = formatted;
+                if (statPomoEl) statPomoEl.textContent = this.timerState.todayPomodoros;
+                if (modalMinEl) modalMinEl.textContent = `${mins} phút`;
+                if (modalPomoEl) modalPomoEl.textContent = `${this.timerState.todayPomodoros} Pomodoro`;
+            },
+
+            openTimerModal() {
+                this.updateTimerStatsUi();
+                document.getElementById('timer-modal').classList.remove('hidden');
+            },
+
+            closeTimerModal() {
+                document.getElementById('timer-modal').classList.add('hidden');
+            },
+
+            setTimerMode(mode) {
+                this.pauseTimer();
+                this.timerState.mode = mode;
+                this.timerState.elapsedSeconds = 0;
+                if (mode !== 'stopwatch') {
+                    this.timerState.secondsLeft = (this.timerState.durations[mode] || 25) * 60;
+                }
+
+                ['pomodoro', 'shortBreak', 'longBreak', 'stopwatch'].forEach(m => {
+                    const btn = document.getElementById(`tmode-${m}`);
+                    if (!btn) return;
+                    if (m === mode) {
+                        btn.classList.add('bg-white', 'dark:bg-slate-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                        btn.classList.remove('text-slate-600', 'dark:text-slate-300');
+                    } else {
+                        btn.classList.remove('bg-white', 'dark:bg-slate-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                        btn.classList.add('text-slate-600', 'dark:text-slate-300');
+                    }
+                });
+
+                const badge = document.getElementById('timer-status-badge');
+                const labels = {
+                    pomodoro: `Phiên tập trung ${this.timerState.durations.pomodoro} phút`,
+                    shortBreak: `Nghỉ ngắn thư giãn ${this.timerState.durations.shortBreak} phút`,
+                    longBreak: `Nghỉ dài phục hồi ${this.timerState.durations.longBreak} phút`,
+                    stopwatch: 'Đếm tiến thời gian học tự do'
+                };
+                if (badge) badge.textContent = labels[mode];
+                this.renderTimerDisplays();
+            },
+
+            updateTimerSettings() {
+                const p = Math.max(1, Math.min(120, parseInt(document.getElementById('cfg-pomo-min').value, 10) || 25));
+                const s = Math.max(1, Math.min(30, parseInt(document.getElementById('cfg-short-min').value, 10) || 5));
+                const l = Math.max(5, Math.min(60, parseInt(document.getElementById('cfg-long-min').value, 10) || 15));
+                this.timerState.durations = { pomodoro: p, shortBreak: s, longBreak: l };
+                this.saveTimerStats();
+                if (!this.timerState.isRunning && this.timerState.mode !== 'stopwatch') {
+                    this.setTimerMode(this.timerState.mode);
+                }
+            },
+
+            toggleTimer() {
+                if (this.timerState.isRunning) {
+                    this.pauseTimer();
+                } else {
+                    this.startTimer();
+                }
+            },
+
+            startTimer() {
+                if (this.timerState.isRunning) return;
+                this.timerState.isRunning = true;
+                this.updateTimerControlsUi();
+
+                this.timerState.intervalId = setInterval(() => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    if (this.timerState.todayDate !== today) {
+                        this.timerState.todayDate = today;
+                        this.timerState.todayStudySeconds = 0;
+                        this.timerState.todayPomodoros = 0;
+                    }
+
+                    if (this.timerState.mode === 'stopwatch') {
+                        this.timerState.elapsedSeconds++;
+                        this.timerState.todayStudySeconds++;
+                        if (this.timerState.elapsedSeconds % 15 === 0) {
+                            this.saveTimerStats();
+                            this.updateTimerStatsUi();
+                        }
+                        this.renderTimerDisplays();
+                        return;
+                    }
+
+                    // Countdown modes
+                    if (this.timerState.mode === 'pomodoro') {
+                        this.timerState.todayStudySeconds++;
+                        if (this.timerState.todayStudySeconds % 15 === 0) {
+                            this.saveTimerStats();
+                            this.updateTimerStatsUi();
+                        }
+                    }
+
+                    this.timerState.secondsLeft--;
+                    this.renderTimerDisplays();
+
+                    if (this.timerState.secondsLeft <= 0) {
+                        this.handleTimerComplete();
+                    }
+                }, 1000);
+            },
+
+            pauseTimer() {
+                this.timerState.isRunning = false;
+                if (this.timerState.intervalId) {
+                    clearInterval(this.timerState.intervalId);
+                    this.timerState.intervalId = null;
+                }
+                this.saveTimerStats();
+                this.updateTimerStatsUi();
+                this.updateTimerControlsUi();
+            },
+
+            resetTimer() {
+                this.pauseTimer();
+                this.timerState.elapsedSeconds = 0;
+                if (this.timerState.mode !== 'stopwatch') {
+                    this.timerState.secondsLeft = (this.timerState.durations[this.timerState.mode] || 25) * 60;
+                }
+                this.renderTimerDisplays();
+            },
+
+            handleTimerComplete() {
+                this.pauseTimer();
+                this.playTimerChime();
+
+                if (this.timerState.mode === 'pomodoro') {
+                    this.timerState.todayPomodoros++;
+                    this.saveTimerStats();
+                    this.updateTimerStatsUi();
+                    this.showToast(`🎉 Hoàn thành 1 phiên Pomodoro (${this.timerState.durations.pomodoro} phút)! Hãy nghỉ ngơi một chút nhé.`, 'success');
+                    const nextBreak = (this.timerState.todayPomodoros % 4 === 0) ? 'longBreak' : 'shortBreak';
+                    this.setTimerMode(nextBreak);
+                } else {
+                    this.showToast('⏰ Hết giờ nghỉ! Sẵn sàng quay lại phiên học tiếp theo.', 'info');
+                    this.setTimerMode('pomodoro');
+                }
+            },
+
+            playTimerChime() {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    const ctx = new AudioCtx();
+                    [523.25, 659.25, 783.99].forEach((freq, i) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.16);
+                        gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.16);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.16 + 0.5);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + i * 0.16);
+                        osc.stop(ctx.currentTime + i * 0.16 + 0.52);
+                    });
+                } catch (e) {
+                    console.warn('Không thể phát âm thanh thông báo:', e);
+                }
+            },
+
+            formatTime(totalSec) {
+                const hrs = Math.floor(totalSec / 3600);
+                const mins = Math.floor((totalSec % 3600) / 60);
+                const secs = totalSec % 60;
+                const pad = (n) => String(n).padStart(2, '0');
+                return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
+            },
+
+            renderTimerDisplays() {
+                const sec = this.timerState.mode === 'stopwatch'
+                    ? this.timerState.elapsedSeconds
+                    : Math.max(0, this.timerState.secondsLeft);
+                const str = this.formatTime(sec);
+
+                const headerDisp = document.getElementById('header-timer-display');
+                const modalDisp = document.getElementById('modal-timer-display');
+                const progressBar = document.getElementById('timer-progress-bar');
+
+                if (headerDisp) headerDisp.textContent = str;
+                if (modalDisp) modalDisp.textContent = str;
+
+                if (progressBar) {
+                    if (this.timerState.mode === 'stopwatch') {
+                        progressBar.style.width = '100%';
+                    } else {
+                        const total = (this.timerState.durations[this.timerState.mode] || 25) * 60;
+                        const pct = Math.max(0, Math.min(100, (sec / total) * 100));
+                        progressBar.style.width = `${pct}%`;
+                    }
+                }
+            },
+
+            updateTimerControlsUi() {
+                const btn = document.getElementById('timer-toggle-btn');
+                const dot = document.getElementById('header-timer-dot');
+                const running = this.timerState.isRunning;
+
+                if (btn) {
+                    btn.innerHTML = running
+                        ? `<i class="ph-bold ph-pause text-lg"></i> <span>Tạm dừng</span>`
+                        : `<i class="ph-bold ph-play text-lg"></i> <span>Bắt đầu</span>`;
+                    btn.className = running
+                        ? 'flex-1 py-3.5 px-6 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-sm shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 transition-all'
+                        : 'flex-1 py-3.5 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all';
+                }
+                if (dot) {
+                    dot.className = running
+                        ? 'w-2 h-2 rounded-full bg-emerald-500 animate-ping'
+                        : 'w-2 h-2 rounded-full bg-slate-400';
+                }
             },
 
             renderDashboard() {
