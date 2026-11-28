@@ -1088,13 +1088,13 @@
             studyQueue: [],
             currentIndex: 0,
             studyMode: 'flashcard',
-            clozeLevel: 50,
+            clozeLevel: 'custom',
             isFlipped: false,
             revealedTokens: new Set(),
-
-            // AI State
-            aiTab: 'text',
-            aiImageBase64: null,
+            hiddenTokens: new Set(),
+            customBlankTokens: new Set(),
+            clozeInteractiveMode: true,
+            lastClozeSeedCardId: null,
             aiImageMimeType: null,
             aiPreviewCards: [],
 
@@ -1727,6 +1727,10 @@
                 this.studyMode = mode;
                 this.isFlipped = false;
                 this.revealedTokens.clear();
+                this.hiddenTokens.clear();
+                this.customBlankTokens.clear();
+                this.clozeInteractiveMode = (this.clozeLevel === 'custom');
+                this.lastClozeSeedCardId = null;
                 this.renderStudyCard();
             },
 
@@ -1752,28 +1756,44 @@
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h4 class="font-extrabold text-base text-indigo-600 dark:text-indigo-400">${this.escapeHtml(card.front)}</h4>
                                 <div class="flex flex-wrap items-center gap-1.5 text-xs">
-                                    <span class="text-slate-400 font-semibold">Độ khó che từ:</span>
+                                    <button onclick="app.setClozeLevel('custom')" class="px-2.5 py-1 rounded-lg font-bold ${this.clozeLevel === 'custom' ? 'bg-violet-600 text-white shadow-sm' : 'bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-300'}" title="Chỉ che đúng các cụm từ bạn đã chọn & lưu">
+                                        <i class="fa-solid fa-bookmark mr-1"></i>Cụm đã lưu
+                                    </button>
+                                    <span class="text-slate-400 font-semibold ml-1">Che tự động:</span>
                                     ${[
                                         { lvl: 30, label: '30%' },
                                         { lvl: 60, label: '60%' },
                                         { lvl: 80, label: '80%' },
-                                        { lvl: 100, label: '100% (Che hết)' }
+                                        { lvl: 100, label: '100%' }
                                     ].map(item => `
-                                        <button onclick="app.clozeLevel=${item.lvl}; app.revealedTokens.clear(); app.renderStudyCard()" class="px-2.5 py-1 rounded-lg font-bold ${this.clozeLevel === item.lvl ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">${item.label}</button>
+                                        <button onclick="app.setClozeLevel(${item.lvl})" class="px-2.5 py-1 rounded-lg font-bold ${this.clozeLevel === item.lvl ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">${item.label}</button>
                                     `).join('')}
-                                    <button onclick="app.revealAllCloze()" class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 font-bold ml-1">Hiện tất cả</button>
                                 </div>
                             </div>
-                            <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-base leading-loose whitespace-pre-line">
+
+                            <!-- Thanh công cụ Bôi đen nhiều từ & Lưu vĩnh viễn -->
+                            <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <button type="button" onclick="app.hideSelectedClozePhrase()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm transition-colors">
+                                        <i class="fa-solid fa-eye-slash mr-1"></i>Ẩn cụm bôi đen &amp; Lưu
+                                    </button>
+                                    <button type="button" onclick="app.unhideSelectedClozePhrase()" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-200 font-bold border border-slate-200 dark:border-slate-700 transition-colors">
+                                        <i class="fa-solid fa-eraser mr-1"></i>Bỏ ẩn cụm bôi đen
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" onclick="app.hideAllCloze()" class="px-2.5 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold">Che hết</button>
+                                    <button type="button" onclick="app.revealAllCloze()" class="px-2.5 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold">Mở hết</button>
+                                </div>
+                            </div>
+
+                            <div id="cloze-editable-box" class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-base leading-loose whitespace-pre-line select-text">
                                 ${this.buildClozeHtml(card.content)}
                             </div>
-                            <p class="text-xs text-slate-400"><i class="fa-solid fa-hand-pointer mr-1"></i> Bấm vào từng ô trống màu tím để tự kiểm tra và lật mở từng cụm từ / công thức.</p>
-                        </div>
-                            </div>
-                            <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-base leading-loose whitespace-pre-line">
-                                ${this.buildClozeHtml(card.content)}
-                            </div>
-                            <p class="text-xs text-slate-400"><i class="fa-solid fa-hand-pointer mr-1"></i> Bấm vào từng ô trống màu tím để tự kiểm tra và lật mở từng cụm từ khóa.</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                <i class="fa-solid fa-circle-info text-indigo-500 mr-1"></i>
+                                <strong>Cách chọn nhiều từ &amp; lưu vĩnh viễn:</strong> Kéo bôi đen <strong>cả cụm từ hoặc cả câu</strong> trong khung trên rồi bấm <strong>"Ẩn cụm bôi đen &amp; Lưu"</strong>. Hệ thống sẽ gộp thành <strong>1 khối che liền mạch</strong> và lưu cố định cho thẻ này về sau!
+                            </p>
                         </div>
                     `;
                 }
@@ -1903,27 +1923,38 @@
 
             buildClozeHtml(text) {
                 let tokenIdx = 0;
+                const isCustomOnly = this.clozeLevel === 'custom';
                 const stopWords = new Set(['là', 'và', 'của', 'có', 'trong', 'về', 'với', 'các', 'những', 'được', 'cho', 'từ', 'khi', 'để', 'một', 'này', 'đó', 'như', 'hay', 'hoặc', 'thì', 'mà', 'bởi', 'tại', 'trên', 'dưới', 'ra', 'vào', 'lên', 'xuống', 'sự', 'tính', 'cái', 'nào', 'không', 'chỉ', 'cũng', 'đều', 'đã', 'đang', 'sẽ']);
 
-                const makeBlank = (rawText, forceHide = false) => {
+                const renderInteractiveToken = (rawHtml, defaultHidden, isKeyword = false) => {
                     const idx = tokenIdx++;
-                    if (!forceHide && this.revealedTokens.has(idx)) {
-                        return `<span class="cloze-revealed">${rawText}</span>`;
+                    let isHidden = defaultHidden;
+                    if (this.hiddenTokens.has(idx)) isHidden = true;
+                    if (this.revealedTokens.has(idx)) isHidden = false;
+
+                    if (!isHidden) {
+                        const baseCls = isKeyword
+                            ? 'cloze-revealed cursor-pointer hover:opacity-80 transition-opacity'
+                            : 'hover:bg-indigo-100/70 dark:hover:bg-indigo-500/20 rounded px-0.5 transition-colors';
+                        const clickAttr = isKeyword || !isCustomOnly ? `onclick="app.toggleClozeToken(${idx}, ${defaultHidden})"` : '';
+                        const titleAttr = isKeyword ? 'title="Bấm để ẨN lại cụm từ này"' : '';
+                        return `<span ${clickAttr} class="${baseCls}" ${titleAttr}>${rawHtml}</span>`;
                     }
-                    if (this.revealedTokens.has(idx)) {
-                        return `<span class="cloze-revealed">${rawText}</span>`;
-                    }
-                    const plainHint = rawText.replace(/<[^>]*>/g, '').replace(/\$/g, '').trim();
+
+                    const plainHint = rawHtml.replace(/<[^>]*>/g, '').replace(/\$/g, '').trim();
+                    const wordCount = plainHint.split(/\s+/).filter(Boolean).length;
                     const firstChar = plainHint ? plainHint.charAt(0) : '?';
-                    const hintLabel = this.clozeLevel === 100
-                        ? `${firstChar}___`
-                        : this.clozeLevel >= 80
-                            ? `${firstChar}..`
-                            : '???';
-                    return `<span onclick="app.revealToken(${idx})" class="cloze-blank" title="Bấm để mở đáp án">${hintLabel}</span>`;
+                    const hintLabel = isKeyword && wordCount > 1
+                        ? `[ Cụm ${wordCount} từ • ${firstChar}... ]`
+                        : this.clozeLevel === 100
+                            ? `${firstChar}___`
+                            : this.clozeLevel >= 80
+                                ? `${firstChar}..`
+                                : '???';
+                    return `<span onclick="app.toggleClozeToken(${idx}, ${defaultHidden})" class="cloze-blank" title="Bấm để HIỆN cụm từ này">${hintLabel}</span>`;
                 };
 
-                // Tách văn bản thành các khối: Công thức $$...$$, Từ khóa **...**, và Văn bản thường
+                // Tách văn bản thành các khối: Công thức $$...$$, Cụm từ khóa đã lưu **...**, và Văn bản thường
                 const segments = String(text || '').split(/(\$\$[\s\S]*?\$\$|\*\*[\s\S]*?\*\*)/g);
 
                 return segments.map(seg => {
@@ -1932,76 +1963,170 @@
                     // 1. Khối công thức Toán/Lý/Hóa $$...$$
                     if (seg.startsWith('$$') && seg.endsWith('$$')) {
                         const escapedFormula = this.escapeHtml(seg);
-                        const shouldHideFormula = this.clozeLevel >= 60 || (this.clozeLevel === 30 && tokenIdx % 2 === 0);
-                        if (!shouldHideFormula) return escapedFormula;
+                        const defaultHide = isCustomOnly ? true : (this.clozeLevel >= 60 || (this.clozeLevel === 30 && tokenIdx % 2 === 0));
                         const idx = tokenIdx++;
-                        if (this.revealedTokens.has(idx)) {
-                            return `<span class="cloze-revealed inline-block my-1">${escapedFormula}</span>`;
+                        let isHidden = defaultHide;
+                        if (this.hiddenTokens.has(idx)) isHidden = true;
+                        if (this.revealedTokens.has(idx)) isHidden = false;
+
+                        if (!isHidden) {
+                            return `<span onclick="app.toggleClozeToken(${idx}, ${defaultHide})" class="cloze-revealed inline-block my-1 cursor-pointer" title="Bấm để ẨN công thức">${escapedFormula}</span>`;
                         }
-                        return `<span onclick="app.revealToken(${idx})" class="cloze-blank my-1" title="Bấm để hiện công thức">[ Công thức #${idx + 1} ]</span>`;
+                        return `<span onclick="app.toggleClozeToken(${idx}, ${defaultHide})" class="cloze-blank my-1" title="Bấm để HIỆN công thức">[ Công thức #${idx + 1} ]</span>`;
                     }
 
-                    // 2. Khối từ khóa trọng tâm **...** (Che mạnh ở mọi mức độ)
+                    // 2. Khối cụm từ đã lưu **...** -> Luôn giữ nguyên thành 1 cụm liền mạch (không tách lẻ tẻ)
                     if (seg.startsWith('**') && seg.endsWith('**')) {
                         const inner = this.escapeHtml(seg.slice(2, -2));
-                        const shouldHideBold = this.clozeLevel >= 60 || (this.clozeLevel === 30 && tokenIdx % 3 !== 2);
-                        if (!shouldHideBold) {
-                            return `<span class="cloze-revealed">${inner}</span>`;
-                        }
-                        return makeBlank(inner, true);
+                        const defaultHide = isCustomOnly ? true : (this.clozeLevel >= 60 || (this.clozeLevel === 30 && tokenIdx % 3 !== 2));
+                        return renderInteractiveToken(inner, defaultHide, true);
                     }
 
-                    // 3. Khối văn bản thường: che thêm các từ mang nghĩa theo tỷ lệ độ khó
+                    // 3. Khối văn bản thường: nếu đang ở chế độ 'custom' thì giữ nguyên để người dùng bôi đen chọn cụm
                     const escapedPlain = this.escapeHtml(seg);
+                    if (isCustomOnly) {
+                        return escapedPlain;
+                    }
+
                     const tokens = escapedPlain.split(/(\s+)/);
                     let wordCounter = 0;
 
                     return tokens.map(tok => {
                         if (!tok || /^\s+$/.test(tok)) return tok;
 
-                        // Tách dấu câu đầu/cuối để giữ nguyên cấu trúc câu dễ đọc
                         const match = tok.match(/^([("'“«\[]*)([^\s.,;:!?)"'”»\]]+)([.,;:!?)"'”»\]]*)$/);
                         if (!match) return tok;
 
                         const [, lead, core, tail] = match;
                         const lowerCore = core.toLowerCase();
 
-                        // Bỏ qua ký hiệu quá ngắn hoặc từ nối phổ thông trừ khi chọn mức 100%
                         if (core.length < 2) return tok;
-                        if (this.clozeLevel < 100 && stopWords.has(lowerCore)) return tok;
 
                         wordCounter++;
-                        let shouldHideWord = false;
-                        if (this.clozeLevel === 100) {
-                            // Che hầu như toàn bộ từ mang nghĩa (chỉ chừa lại 1 từ mỏ neo mỗi 7 từ để định vị)
-                            shouldHideWord = !stopWords.has(lowerCore) || (wordCounter % 2 === 0);
+                        let defaultHide = false;
+                        if (this.clozeLevel < 100 && stopWords.has(lowerCore)) {
+                            defaultHide = false;
+                        } else if (this.clozeLevel === 100) {
+                            defaultHide = !stopWords.has(lowerCore) || (wordCounter % 2 === 0);
                         } else if (this.clozeLevel === 80) {
-                            shouldHideWord = (wordCounter % 5 !== 0);
+                            defaultHide = (wordCounter % 5 !== 0);
                         } else if (this.clozeLevel === 60) {
-                            shouldHideWord = (wordCounter % 2 === 1);
+                            defaultHide = (wordCounter % 2 === 1);
                         } else {
-                            // Mức 30%: che thêm 1/3 số từ mang nghĩa bên cạnh các từ khóa **...**
-                            shouldHideWord = (wordCounter % 3 === 1);
+                            defaultHide = (wordCounter % 3 === 1);
                         }
 
-                        if (!shouldHideWord) return tok;
-                        return `${lead}${makeBlank(core, true)}${tail}`;
+                        return `${lead}${renderInteractiveToken(core, defaultHide, false)}${tail}`;
                     }).join('');
                 }).join('');
             },
 
-            revealToken(idx) {
-                this.revealedTokens.add(idx);
+            setClozeLevel(lvl) {
+                this.clozeLevel = lvl;
+                this.clozeInteractiveMode = (lvl === 'custom');
+                this.revealedTokens.clear();
+                this.hiddenTokens.clear();
+                this.renderStudyCard();
+            },
+
+            hideSelectedClozePhrase() {
+                const card = this.studyQueue[this.currentIndex];
+                if (!card) return;
+                const box = document.getElementById('cloze-editable-box');
+                const sel = window.getSelection();
+                const selectedText = (sel ? sel.toString() : '').replace(/\s+/g, ' ').trim();
+
+                if (!selectedText || selectedText.length < 2) {
+                    this.showToast('Hãy kéo chuột / ngón tay bôi đen cụm từ muốn ẩn trước!', 'info');
+                    return;
+                }
+                if (selectedText.startsWith('[ Cụm') || selectedText === '???') {
+                    this.showToast('Cụm này đã được ẩn rồi! Hãy bấm "Mở hết" nếu muốn chọn lại vùng rộng hơn.', 'info');
+                    return;
+                }
+                if (box && sel.anchorNode && !box.contains(sel.anchorNode)) {
+                    this.showToast('Vui lòng bôi đen cụm từ nằm bên trong khung nội dung thẻ!', 'info');
+                    return;
+                }
+
+                // Tìm vị trí cụm từ trong nội dung gốc (kể cả khi bên trong có sẵn dấu **)
+                const escaped = selectedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const flexiblePattern = escaped.split(/\s+/).join('(?:\\*\\*)?\\s+(?:\\*\\*)?');
+                const regex = new RegExp(`(\\*\\*)?(${flexiblePattern})(\\*\\*)?`);
+
+                if (!regex.test(card.content)) {
+                    this.showToast('Không khớp được cụm từ vừa chọn. Hãy bấm "Mở hết" rồi bôi đen lại cụm liền mạch!', 'error');
+                    return;
+                }
+
+                card.content = card.content.replace(regex, (_, pre, matchedPhrase, post) => {
+                    const cleanedInner = matchedPhrase.replace(/\*\*/g, '').trim();
+                    return `**${cleanedInner}**`;
+                });
+
+                if (sel) sel.removeAllRanges();
+                this.clozeLevel = 'custom';
+                this.revealedTokens.clear();
+                this.hiddenTokens.clear();
+                this.saveData();
+                this.renderStudyCard();
+                this.showToast(`Đã ẩn cụm "${selectedText}" và lưu vĩnh viễn cho thẻ!`, 'success');
+            },
+
+            unhideSelectedClozePhrase() {
+                const card = this.studyQueue[this.currentIndex];
+                if (!card) return;
+                const sel = window.getSelection();
+                const selectedText = (sel ? sel.toString() : '').replace(/\s+/g, ' ').trim();
+
+                if (!selectedText) {
+                    this.showToast('Hãy bôi đen cụm từ đang hiện (màu xanh) muốn bỏ ẩn vĩnh viễn!', 'info');
+                    return;
+                }
+
+                const escaped = selectedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`\\*\\*([^*]*${escaped}[^*]*)\\*\\*`);
+                if (regex.test(card.content)) {
+                    card.content = card.content.replace(regex, '$1');
+                    if (sel) sel.removeAllRanges();
+                    this.revealedTokens.clear();
+                    this.hiddenTokens.clear();
+                    this.saveData();
+                    this.renderStudyCard();
+                    this.showToast('Đã bỏ ẩn cụm từ và lưu lại thẻ!', 'success');
+                } else {
+                    this.showToast('Hãy bấm "Mở hết" để hiện chữ rồi bôi đen cụm màu xanh cần bỏ ẩn!', 'info');
+                }
+            },
+
+            toggleClozeToken(idx, defaultHidden) {
+                const currentlyHidden = this.hiddenTokens.has(idx)
+                    ? true
+                    : this.revealedTokens.has(idx)
+                        ? false
+                        : defaultHidden;
+
+                if (currentlyHidden) {
+                    this.hiddenTokens.delete(idx);
+                    this.revealedTokens.add(idx);
+                } else {
+                    this.revealedTokens.delete(idx);
+                    this.hiddenTokens.add(idx);
+                }
+                this.renderStudyCard();
+            },
+
+            hideAllCloze() {
+                this.revealedTokens.clear();
+                this.hiddenTokens.clear();
+                for (let i = 0; i < 600; i++) this.hiddenTokens.add(i);
                 this.renderStudyCard();
             },
 
             revealAllCloze() {
-                for (let i = 0; i < 500; i++) this.revealedTokens.add(i);
-                this.renderStudyCard();
-            },
-
-            revealAllCloze() {
-                for (let i = 0; i < 100; i++) this.revealedTokens.add(i);
+                this.hiddenTokens.clear();
+                this.revealedTokens.clear();
+                for (let i = 0; i < 600; i++) this.revealedTokens.add(i);
                 this.renderStudyCard();
             },
 
@@ -2010,6 +2135,7 @@
                 this.currentIndex = (this.currentIndex - 1 + this.studyQueue.length) % this.studyQueue.length;
                 this.isFlipped = false;
                 this.revealedTokens.clear();
+                this.hiddenTokens.clear();
                 this.renderStudyCard();
             },
 
@@ -2018,6 +2144,7 @@
                 this.currentIndex = (this.currentIndex + 1) % this.studyQueue.length;
                 this.isFlipped = false;
                 this.revealedTokens.clear();
+                this.hiddenTokens.clear();
                 this.renderStudyCard();
             },
 
